@@ -269,6 +269,8 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
             ),
         )
 
+        print(f"self._host_maddrs - {self._host_maddrs}")
+
         # Set up DHT
         if self._host_maddrs:
             self._dht = hivemind.DHT(
