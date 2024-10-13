@@ -163,6 +163,7 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
                 "enable_activation_offloading should only be enabled for training on CUDA"
             )
         self._host_maddrs = cfg.get("host_maddrs", None)
+        print(f"self._host_maddrs - {self._host_maddrs}")
 
     def load_checkpoint(self, cfg_checkpointer: DictConfig) -> Dict[str, Any]:
         """

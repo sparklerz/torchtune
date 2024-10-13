@@ -208,6 +208,7 @@ For a list of all possible recipes, run `tune ls`."""
 
         # Add host_maddrs to recipe_args if provided
         if args.host_maddrs:
+            print("args.host_maddrs : {args.host_maddrs}")
             args.recipe_args.extend(["--host_maddrs", args.host_maddrs])
 
         # Make sure user code in current directory is importable
