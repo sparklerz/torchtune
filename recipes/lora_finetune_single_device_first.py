@@ -800,9 +800,12 @@ def recipe_main(cfg: DictConfig) -> None:
         - Parameters specified in config (see available configs through ``tune ls``)
         - Overwritten by arguments from the command-line
     """
+    log.info("Entering recipe_main method")
     config.log_config(recipe_name="LoRAFinetuneRecipeSingleDevice", cfg=cfg)
     recipe = LoRAFinetuneRecipeSingleDevice(cfg=cfg)
+    log.info("Entering setup method")
     recipe.setup(cfg=cfg)
+    log.info("Entering train method")
     recipe.train()
     recipe.cleanup()
 
