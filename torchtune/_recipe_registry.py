@@ -105,6 +105,17 @@ _ALL_RECIPES = [
         supports_distributed=True,
     ),
     Recipe(
+        name="hivemind_qlora_finetune_first_peer",
+        file_path="lora_finetune_single_device_first.py",
+        configs=[
+            Config(
+                name="llama2/7B_qlora_single_device",
+                file_path="llama2/7B_qlora_single_device.yaml",
+            ),
+        ],
+        supports_distributed=False,
+    ),
+    Recipe(
         name="lora_finetune_single_device",
         file_path="lora_finetune_single_device.py",
         configs=[
