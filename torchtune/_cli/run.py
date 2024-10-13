@@ -33,7 +33,7 @@ class Run(Subcommand):
             prog="tune run",
             help="Run a recipe. For distributed recipes, this supports all torchrun arguments.",
             description="Run a recipe. For distributed recipes, this supports all torchrun arguments.",
-            usage="tune run [TORCHRUN-OPTIONS] <recipe> --config <config> [RECIPE-OPTIONS]",
+            usage="tune run [TORCHRUN-OPTIONS] --config [RECIPE-OPTIONS] --host_maddrs [HOST_MADDRS]",
             epilog=textwrap.dedent(
                 """\
                 examples:
@@ -49,6 +49,9 @@ class Run(Subcommand):
                         lora_finetune_single_device \
                         --config llama2/7B_lora_single_device \
                         model.lora_rank=16 \
+
+                    # Specify host_maddrs for Hivemind
+                    $ tune run lora_finetune_single_device --config llama2/7B_qlora_single_device --host_maddrs /ip4/0.0.0.0/tcp/31337
 
                 Remember, you can use `tune cp` to copy a default recipe/config to your local dir and modify the values.
                 """
@@ -79,6 +82,14 @@ For a list of all possible recipes, run `tune ls`."""
                 continue
             self._parser._add_action(action)
 
+        # Add the host_maddrs argument
+        self._parser.add_argument(
+            "--host_maddrs",
+            type=str,
+            help="Host maddrs for Hivemind DHT",
+            default=None
+        )
+
     @record
     def _run_distributed(self, args: argparse.Namespace, is_builtin: bool):
         """Run a recipe with torchrun."""
@@ -97,6 +108,8 @@ For a list of all possible recipes, run `tune ls`."""
     def _run_single_device(self, args: argparse.Namespace, is_builtin: bool):
         """Run a recipe on a single device."""
         sys.argv = [str(args.recipe)] + args.recipe_args
+        if args.host_maddrs:
+            sys.argv.extend(["--host_maddrs", args.host_maddrs])
         if is_builtin:
             # torchtune built-in recipes are specified with an absolute posix path
             runpy.run_path(str(args.recipe), run_name="__main__")
@@ -192,6 +205,10 @@ For a list of all possible recipes, run `tune ls`."""
         # Prepare args
         args.recipe = recipe_path
         args.recipe_args[config_idx] = config_path
+
+        # Add host_maddrs to recipe_args if provided
+        if args.host_maddrs:
+            args.recipe_args.extend(["--host_maddrs", args.host_maddrs])
 
         # Make sure user code in current directory is importable
         sys.path.append(os.getcwd())

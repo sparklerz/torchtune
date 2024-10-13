@@ -160,6 +160,7 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
             raise RuntimeError(
                 "enable_activation_offloading should only be enabled for training on CUDA"
             )
+        self._host_maddrs = cfg.get("host_maddrs", None)
 
     def load_checkpoint(self, cfg_checkpointer: DictConfig) -> Dict[str, Any]:
         """
@@ -257,16 +258,6 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
         self._tokenizer = config.instantiate(cfg.tokenizer)
         log.info("Tokenizer is initialized from file.")
 
-        # Set up DHT
-        self._dht = hivemind.DHT(
-            host_maddrs=[cfg.hivemind.host_maddrs],
-            start=True
-        )
-        log.info('\n'.join(str(addr) for addr in self._dht.get_visible_maddrs()))
-        log.info(f"Global IP: {hivemind.utils.networking.choose_ip_address(self._dht.get_visible_maddrs())}")
-        log.info(f"To join the training, use initial_peers = {[str(addr) for addr in self._dht.get_visible_maddrs()]}")
-
-        # Wrap the optimizer with Hivemind
         self._optimizer = self._setup_optimizer(
             cfg_optimizer=cfg.optimizer,
             opt_state_dict=(
@@ -275,17 +266,31 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
                 else None
             ),
         )
-        self._optimizer = hivemind.Optimizer(
-            dht=self._dht,
-            run_id=cfg.hivemind.run_id,
-            batch_size_per_step=cfg.batch_size,
-            target_batch_size=cfg.hivemind.target_batch_size,
-            optimizer=self._optimizer,
-            use_local_updates=cfg.hivemind.use_local_updates,
-            matchmaking_time=cfg.hivemind.matchmaking_time,
-            averaging_timeout=cfg.hivemind.averaging_timeout,
-            verbose=cfg.hivemind.verbose
-        )
+
+        # Set up DHT
+        if self._host_maddrs:
+            self._dht = hivemind.DHT(
+                host_maddrs=[self._host_maddrs],
+                start=True
+            )
+            log.info('\n'.join(str(addr) for addr in self._dht.get_visible_maddrs()))
+            log.info(f"Global IP: {hivemind.utils.networking.choose_ip_address(self._dht.get_visible_maddrs())}")
+            log.info(f"To join the training, use initial_peers = {[str(addr) for addr in self._dht.get_visible_maddrs()]}")
+
+            # Wrap the optimizer with Hivemind
+            self._optimizer = hivemind.Optimizer(
+                dht=self._dht,
+                run_id=cfg.hivemind.run_id,
+                batch_size_per_step=cfg.batch_size,
+                target_batch_size=cfg.hivemind.target_batch_size,
+                optimizer=self._optimizer,
+                use_local_updates=cfg.hivemind.use_local_updates,
+                matchmaking_time=cfg.hivemind.matchmaking_time,
+                averaging_timeout=cfg.hivemind.averaging_timeout,
+                verbose=cfg.hivemind.verbose
+            )
+        else:
+            log.warning("No host_maddrs provided. DHT and Hivemind optimizer not initialized.")
 
         # initialize loss
         self._loss_fn = config.instantiate(cfg.loss)
@@ -782,7 +787,8 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
 
     def cleanup(self) -> None:
         self._metric_logger.close()
-        self._dht.shutdown()
+        if hasattr(self, '_dht'):
+            self._dht.shutdown()
 
 
 @config.parse
