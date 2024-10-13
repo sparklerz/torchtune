@@ -40,9 +40,11 @@ from torchtune.training import (
 )
 from tqdm import tqdm
 
+import hivemind
+
 log = utils.get_logger("DEBUG")
 
-import hivemind
+
 
 class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
     """
@@ -256,7 +258,7 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
         )
 
         self._tokenizer = config.instantiate(cfg.tokenizer)
-        log.info("Tokenizer is initialized from file.")
+        print("Tokenizer is initialized from file.")
 
         self._optimizer = self._setup_optimizer(
             cfg_optimizer=cfg.optimizer,
@@ -273,9 +275,9 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
                 host_maddrs=[self._host_maddrs],
                 start=True
             )
-            log.info('\n'.join(str(addr) for addr in self._dht.get_visible_maddrs()))
-            log.info(f"Global IP: {hivemind.utils.networking.choose_ip_address(self._dht.get_visible_maddrs())}")
-            log.info(f"To join the training, use initial_peers = {[str(addr) for addr in self._dht.get_visible_maddrs()]}")
+            print('\n'.join(str(addr) for addr in self._dht.get_visible_maddrs()))
+            print(f"Global IP: {hivemind.utils.networking.choose_ip_address(self._dht.get_visible_maddrs())}")
+            print(f"To join the training, use initial_peers = {[str(addr) for addr in self._dht.get_visible_maddrs()]}")
 
             # Wrap the optimizer with Hivemind
             self._optimizer = hivemind.Optimizer(
@@ -301,7 +303,7 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
             # set num_output_chunks for model
             self._model.set_num_output_chunks(self._loss_fn.num_output_chunks)
 
-        log.info("Loss is initialized.")
+        print("Loss is initialized.")
 
         # Dataloader depends on the tokenizer and loss_fn and should be
         # setup after all of these are setup
@@ -404,7 +406,7 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
 
         profiler, profiler_cfg = config.instantiate(cfg_profiler)
 
-        log.info(f" Profiler config after instantiation: {profiler_cfg}")
+        print(f" Profiler config after instantiation: {profiler_cfg}")
 
         self.profiler_profile_memory = profiler_cfg.get("profile_memory", False)
         if profiler_cfg["enabled"]:
@@ -489,7 +491,7 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
                     lambda *args: noop_ctx.__exit__(), always_call=True
                 )
 
-        log.info(f"Model is initialized with precision {self._dtype}.")
+        print(f"Model is initialized with precision {self._dtype}.")
 
         if self._device.type == "cuda":
             memory_stats = training.get_memory_stats(device=self._device)
@@ -503,7 +505,7 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
         if opt_state_dict:
             optimizer.load_state_dict(opt_state_dict)
 
-        log.info("Optimizer and loss are initialized.")
+        print("Optimizer and loss are initialized.")
         return optimizer
 
     def _setup_lr_scheduler(
@@ -519,7 +521,7 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
             last_epoch=last_epoch,
         )
 
-        log.info("Learning rate scheduler is initialized.")
+        print("Learning rate scheduler is initialized.")
         return lr_scheduler
 
     def _setup_data(
@@ -574,7 +576,7 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
             ),
         )
 
-        log.info("Dataset and Sampler are initialized.")
+        print("Dataset and Sampler are initialized.")
 
         return sampler, dataloader
 
@@ -672,7 +674,7 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
         """
 
         if self._compile:
-            log.info(
+            print(
                 "NOTE: torch.compile is enabled and model is compiled in first forward. Expect a relatively slow first iteration."
             )
 
@@ -777,9 +779,9 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
 
                 self.epochs_run += 1
                 start_save_checkpoint = time.perf_counter()
-                log.info("Starting checkpoint save...")
+                print("Starting checkpoint save...")
                 self.save_checkpoint(epoch=curr_epoch)
-                log.info(
+                print(
                     "Checkpoint saved in {:.2f} seconds.".format(
                         time.perf_counter() - start_save_checkpoint
                     )
@@ -800,12 +802,12 @@ def recipe_main(cfg: DictConfig) -> None:
         - Parameters specified in config (see available configs through ``tune ls``)
         - Overwritten by arguments from the command-line
     """
-    log.info("Entering recipe_main method")
+    print("Entering recipe_main method")
     config.log_config(recipe_name="LoRAFinetuneRecipeSingleDevice", cfg=cfg)
     recipe = LoRAFinetuneRecipeSingleDevice(cfg=cfg)
-    log.info("Entering setup method")
+    print("Entering setup method")
     recipe.setup(cfg=cfg)
-    log.info("Entering train method")
+    print("Entering train method")
     recipe.train()
     recipe.cleanup()
 
