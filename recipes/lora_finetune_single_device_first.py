@@ -45,7 +45,6 @@ import hivemind
 log = utils.get_logger("DEBUG")
 
 
-
 class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
     """
     LoRA finetuning recipe for dense transformer-based LLMs such as Llama2. This recipe is optimized
@@ -227,6 +226,19 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
                 "Are you sure you passed in the right recipe checkpoint?"
             ) from e
 
+    def _convert_to_float32(self, params):
+        """Convert nf4 tensors to float32."""
+        return [p.detach().to(dtype=torch.float32, device='cpu', copy=True) for p in params]
+
+    def _convert_to_nf4(self, params):
+        """Convert float32 tensors back to nf4."""
+        return [p.to(dtype=torch.nf4) for p in params]
+
+    # def _filter_trainable_params(self):
+    #     """Filter out parameters that do not require gradients."""
+    #     return [p for p in self._model.parameters() if p.requires_grad]
+
+
     def setup(self, cfg: DictConfig) -> None:
         """
         Setup the recipe state. This includes recipe state (if resume_from_checkpoint is True),
@@ -282,6 +294,12 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
             print(f"Global IP: {hivemind.utils.networking.choose_ip_address(self._dht.get_visible_maddrs())}")
             print(f"To join the training, use initial_peers = {[str(addr) for addr in self._dht.get_visible_maddrs()]}")
 
+            # Filter trainable params
+            # trainable_params = self._filter_trainable_params()
+
+            # Convert parameters to float32 for averaging
+            float_params = self._convert_to_float32(self._model.parameters())
+
             # Wrap the optimizer with Hivemind
             self._optimizer = hivemind.Optimizer(
                 dht=self._dht,              # use a DHT that is connected with other peers            
@@ -292,8 +310,13 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
                 use_local_updates=True,     # perform optimizer steps with local gradients, average parameters in background
                 matchmaking_time=3.0,       # when averaging parameters, gather peers in background for up to this many seconds
                 averaging_timeout=10.0,     # give up on averaging if not successful in this many seconds
-                verbose=True                # print logs incessently
+                verbose=True,               # print logs incessently
+                params=float_params
             )
+
+            # Convert parameters back to their original dtype after averaging
+            for param, float_param in zip(self._model.parameters(), float_params):
+                param.data = float_param.to(dtype=torch.nf4)
         else:
             log.warning("No host_maddrs provided. DHT and Hivemind optimizer not initialized.")
 
