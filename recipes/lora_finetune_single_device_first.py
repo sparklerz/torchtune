@@ -240,14 +240,27 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
     #             param.data = float32_param.data
     #     return float32_params
 
+    # def _convert_model_params_to_float32(self):
+    #     float32_params = []
+    #     for param in self._model.parameters():
+    #         float32_param = param.to(dtype=torch.float32, device='cpu')
+    #         float32_params.append(float32_param)
+    #         # Update the model's parameter
+    #         with torch.no_grad():
+    #             param.data = float32_param.data
+    #     return float32_params
+
     def _convert_model_params_to_float32(self):
         float32_params = []
         for param in self._model.parameters():
-            float32_param = param.to(dtype=torch.float32, device='cpu')
-            float32_params.append(float32_param)
-            # Update the model's parameter
-            with torch.no_grad():
-                param.data = float32_param.data
+            if param.dtype != torch.float32:
+                float32_param = param.to(dtype=torch.float32)
+                float32_params.append(float32_param)
+                # Update the model's parameter
+                with torch.no_grad():
+                    param.data = float32_param.data
+            else:
+                float32_params.append(param)
         return float32_params
 
     # def _convert_to_nf4(self, params):
@@ -261,11 +274,18 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
     #             param.data.copy_(nf4_param.data)
     #         self.adapter_params[key] = param
 
+    # def _convert_model_params_to_nf4(self, float32_params):
+    #     for param, float32_param in zip(self._model.parameters(), float32_params):
+    #         nf4_param = float32_param.to(dtype=torch.nf4)
+    #         with torch.no_grad():
+    #             param.data.copy_(nf4_param.data)
+
     def _convert_model_params_to_nf4(self, float32_params):
         for param, float32_param in zip(self._model.parameters(), float32_params):
-            nf4_param = float32_param.to(dtype=torch.nf4)
-            with torch.no_grad():
-                param.data.copy_(nf4_param.data)
+            if param.dtype != torch.nf4:
+                nf4_param = float32_param.to(dtype=torch.nf4)
+                with torch.no_grad():
+                    param.data.copy_(nf4_param.data)
 
     # def _filter_trainable_params(self):
     #     """Filter out parameters that do not require gradients."""
