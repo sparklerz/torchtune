@@ -228,7 +228,7 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
 
     def _convert_to_float32(self, params):
         """Convert nf4 tensors to float32."""
-        return [p.detach().to(dtype=torch.float32, device='cpu', copy=True) if isinstance(p, torch.Tensor) else p for p in params]
+        return [p.to(dtype=torch.float32, device='cpu', copy=True) for p in params]
 
     def _convert_to_nf4(self, params):
         """Convert float32 tensors back to nf4."""
