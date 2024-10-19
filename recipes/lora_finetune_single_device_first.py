@@ -298,7 +298,6 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
             # trainable_params = self._filter_trainable_params()
 
             print(f"Type of adapter_params: {type(self.adapter_params)}")
-            print(f"Content of adapter_params: {self.adapter_params}")
 
             # Convert parameters to float32 for averaging
             float_params = self._convert_to_float32(self.adapter_params)
