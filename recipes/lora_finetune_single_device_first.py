@@ -226,13 +226,30 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
                 "Are you sure you passed in the right recipe checkpoint?"
             ) from e
 
-    def _convert_to_float32(self, params):
-        """Convert nf4 tensors to float32."""
-        return [p.to(dtype=torch.float32, device='cpu', copy=True) for p in params]
+    # def _convert_to_float32(self, params):
+    #     """Convert nf4 tensors to float32."""
+    #     return [p.to(dtype=torch.float32, device='cpu', copy=True) for p in params]
 
-    def _convert_to_nf4(self, params):
-        """Convert float32 tensors back to nf4."""
-        return [p.to(dtype=torch.nf4) for p in params]
+    def _convert_adapter_params_to_float32(self):
+        float32_params = {}
+        for key, param in self.adapter_params.items():
+            float32_param = param.to(dtype=torch.float32, device='cpu')
+            float32_params[key] = float32_param
+            # Update the model's parameter
+            with torch.no_grad():
+                param.data = float32_param.data
+        return float32_params
+
+    # def _convert_to_nf4(self, params):
+    #     """Convert float32 tensors back to nf4."""
+    #     return [p.to(dtype=torch.nf4) for p in params]
+
+    def _convert_adapter_params_to_nf4(self, float32_params):
+        for (key, param), float32_param in zip(self.adapter_params.items(), float32_params):
+            nf4_param = float32_param.to(dtype=torch.nf4)
+            with torch.no_grad():
+                param.data.copy_(nf4_param.data)
+            self.adapter_params[key] = param
 
     # def _filter_trainable_params(self):
     #     """Filter out parameters that do not require gradients."""
@@ -299,11 +316,14 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
 
             print(f"Type of adapter_params: {type(self.adapter_params)}")
 
-            # Extract just the parameter values from self.adapter_params
-            adapter_params_list = list(self.adapter_params.values())
+            # # Extract just the parameter values from self.adapter_params
+            # adapter_params_list = list(self.adapter_params.values())
+
+            # # Convert parameters to float32 for averaging
+            # float_params = self._convert_to_float32(adapter_params_list)
 
             # Convert parameters to float32 for averaging
-            float_params = self._convert_to_float32(adapter_params_list)
+            float32_params = self._convert_adapter_params_to_float32()
 
             # Wrap the optimizer with Hivemind
             self._optimizer = hivemind.Optimizer(
@@ -312,18 +332,21 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
                 batch_size_per_step=8,      # each call to opt.step adds this many samples towards the next epoch
                 target_batch_size=1000,     # after peers collectively process this many samples, average weights and begin the next epoch
                 optimizer=self._optimizer,  # wrap the SGD optimizer defined above
+                params=float32_params.values(),
                 use_local_updates=True,     # perform optimizer steps with local gradients, average parameters in background
                 matchmaking_time=3.0,       # when averaging parameters, gather peers in background for up to this many seconds
                 averaging_timeout=10.0,     # give up on averaging if not successful in this many seconds
                 verbose=True,               # print logs incessently
-                params=float_params
             )
 
+            # # Convert parameters back to their original dtype after averaging and update self.adapter_params
+            # for (key, param), float_param in zip(self.adapter_params.items(), float_params):
+            #     nf4_param = float_param.to(dtype=torch.nf4)
+            #     param.data.copy_(nf4_param)
+            #     self.adapter_params[key] = param
+
             # Convert parameters back to their original dtype after averaging and update self.adapter_params
-            for (key, param), float_param in zip(self.adapter_params.items(), float_params):
-                nf4_param = float_param.to(dtype=torch.nf4)
-                param.data.copy_(nf4_param)
-                self.adapter_params[key] = param
+            self._convert_adapter_params_to_nf4(float32_params)
         else:
             log.warning("No host_maddrs provided. DHT and Hivemind optimizer not initialized.")
 
