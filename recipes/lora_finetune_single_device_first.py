@@ -41,6 +41,7 @@ from torchtune.training import (
 from tqdm import tqdm
 
 import hivemind
+from bitsandbytes.functional import nf4
 
 log = utils.get_logger("DEBUG")
 
@@ -283,7 +284,7 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
     def _convert_model_params_to_float32(self):
         float32_params = []
         for param in self._model.parameters():
-            if param.dtype == torch.nf4:
+            if param.dtype == nf4:
                 # Convert nf4 tensor to float32 on CPU
                 float32_param = param.detach().cpu().to(dtype=torch.float32)
                 float32_params.append(float32_param)
@@ -307,52 +308,52 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
 
     # def _convert_to_nf4(self, params):
     #     """Convert float32 tensors back to nf4."""
-    #     return [p.to(dtype=torch.nf4) for p in params]
+    #     return [p.to(dtype=nf4) for p in params]
 
     # def _convert_adapter_params_to_nf4(self, float32_params):
     #     for (key, param), float32_param in zip(self.adapter_params.items(), float32_params):
-    #         nf4_param = float32_param.to(dtype=torch.nf4)
+    #         nf4_param = float32_param.to(dtype=nf4)
     #         with torch.no_grad():
     #             param.data.copy_(nf4_param.data)
     #         self.adapter_params[key] = param
 
     # def _convert_model_params_to_nf4(self, float32_params):
     #     for param, float32_param in zip(self._model.parameters(), float32_params):
-    #         nf4_param = float32_param.to(dtype=torch.nf4)
+    #         nf4_param = float32_param.to(dtype=nf4)
     #         with torch.no_grad():
     #             param.data.copy_(nf4_param.data)
 
     # def _convert_model_params_to_nf4(self, float32_params):
     #     for param, float32_param in zip(self._model.parameters(), float32_params):
-    #         if param.dtype != torch.nf4:
-    #             nf4_param = float32_param.to(dtype=torch.nf4)
+    #         if param.dtype != nf4:
+    #             nf4_param = float32_param.to(dtype=nf4)
     #             with torch.no_grad():
     #                 param.data.copy_(nf4_param.data)
 
     # def _convert_model_params_to_nf4(self, float32_params):
     #     for param, float32_param in zip(self._model.parameters(), float32_params):
-    #         if param.dtype != torch.nf4:
+    #         if param.dtype != nf4:
     #             try:
-    #                 nf4_param = float32_param.to(dtype=torch.nf4)
+    #                 nf4_param = float32_param.to(dtype=nf4)
     #             except Exception:
     #                 # If conversion fails, create a new tensor with the same data
-    #                 nf4_param = torch.tensor(float32_param.data, dtype=torch.nf4)
+    #                 nf4_param = torch.tensor(float32_param.data, dtype=nf4)
     #             with torch.no_grad():
     #                 param.data.copy_(nf4_param.data)
 
     def _convert_model_params_to_nf4(self, float32_params):
         for param, float32_param in zip(self._model.parameters(), float32_params):
-            if param.dtype == torch.nf4:
+            if param.dtype == nf4:
                 # Convert float32 tensor to nf4 on CPU
-                nf4_param = float32_param.detach().cpu().to(dtype=torch.nf4)
+                nf4_param = float32_param.detach().cpu().to(dtype=nf4)
                 with torch.no_grad():
                     param.data.copy_(nf4_param.to(param.device))
-            elif param.dtype != torch.nf4:
+            elif param.dtype != nf4:
                 try:
-                    nf4_param = float32_param.to(dtype=torch.nf4)
+                    nf4_param = float32_param.to(dtype=nf4)
                 except Exception:
                     # If conversion fails, create a new tensor with the same data
-                    nf4_param = torch.tensor(float32_param.data, dtype=torch.nf4)
+                    nf4_param = torch.tensor(float32_param.data, dtype=nf4)
                 with torch.no_grad():
                     param.data.copy_(nf4_param.data)
 
@@ -449,7 +450,7 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
 
             # # Convert parameters back to their original dtype after averaging and update self.adapter_params
             # for (key, param), float_param in zip(self.adapter_params.items(), float_params):
-            #     nf4_param = float_param.to(dtype=torch.nf4)
+            #     nf4_param = float_param.to(dtype=nf4)
             #     param.data.copy_(nf4_param)
             #     self.adapter_params[key] = param
 
