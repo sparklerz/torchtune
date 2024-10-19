@@ -298,7 +298,7 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
             # trainable_params = self._filter_trainable_params()
 
             # Convert parameters to float32 for averaging
-            float_params = self._convert_to_float32(self._model.parameters())
+            float_params = self._convert_to_float32(self.adapter_params)
 
             # Wrap the optimizer with Hivemind
             self._optimizer = hivemind.Optimizer(
@@ -315,7 +315,7 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
             )
 
             # Convert parameters back to their original dtype after averaging
-            for param, float_param in zip(self._model.parameters(), float_params):
+            for param, float_param in zip(self.adapter_params, float_params):
                 param.data = float_param.to(dtype=torch.nf4)
         else:
             log.warning("No host_maddrs provided. DHT and Hivemind optimizer not initialized.")
