@@ -263,10 +263,34 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
     #             float32_params.append(param)
     #     return float32_params
 
+    # def _convert_model_params_to_float32(self):
+    #     float32_params = []
+    #     for param in self._model.parameters():
+    #         if param.dtype != torch.float32:
+    #             try:
+    #                 float32_param = param.to(dtype=torch.float32)
+    #             except Exception:
+    #                 # If conversion fails, create a new tensor with the same data
+    #                 float32_param = torch.tensor(param.data, dtype=torch.float32)
+    #             float32_params.append(float32_param)
+    #             # Update the model's parameter
+    #             with torch.no_grad():
+    #                 param.data = float32_param.data
+    #         else:
+    #             float32_params.append(param)
+    #     return float32_params
+
     def _convert_model_params_to_float32(self):
         float32_params = []
         for param in self._model.parameters():
-            if param.dtype != torch.float32:
+            if param.dtype == torch.nf4:
+                # Convert nf4 tensor to float32 on CPU
+                float32_param = param.detach().cpu().to(dtype=torch.float32)
+                float32_params.append(float32_param)
+                # Update the model's parameter
+                with torch.no_grad():
+                    param.data = float32_param.to(param.device)
+            elif param.dtype != torch.float32:
                 try:
                     float32_param = param.to(dtype=torch.float32)
                 except Exception:
@@ -279,6 +303,7 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
             else:
                 float32_params.append(param)
         return float32_params
+
 
     # def _convert_to_nf4(self, params):
     #     """Convert float32 tensors back to nf4."""
@@ -304,9 +329,25 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
     #             with torch.no_grad():
     #                 param.data.copy_(nf4_param.data)
 
+    # def _convert_model_params_to_nf4(self, float32_params):
+    #     for param, float32_param in zip(self._model.parameters(), float32_params):
+    #         if param.dtype != torch.nf4:
+    #             try:
+    #                 nf4_param = float32_param.to(dtype=torch.nf4)
+    #             except Exception:
+    #                 # If conversion fails, create a new tensor with the same data
+    #                 nf4_param = torch.tensor(float32_param.data, dtype=torch.nf4)
+    #             with torch.no_grad():
+    #                 param.data.copy_(nf4_param.data)
+
     def _convert_model_params_to_nf4(self, float32_params):
         for param, float32_param in zip(self._model.parameters(), float32_params):
-            if param.dtype != torch.nf4:
+            if param.dtype == torch.nf4:
+                # Convert float32 tensor to nf4 on CPU
+                nf4_param = float32_param.detach().cpu().to(dtype=torch.nf4)
+                with torch.no_grad():
+                    param.data.copy_(nf4_param.to(param.device))
+            elif param.dtype != torch.nf4:
                 try:
                     nf4_param = float32_param.to(dtype=torch.nf4)
                 except Exception:
