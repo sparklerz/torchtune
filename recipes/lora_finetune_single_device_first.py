@@ -226,141 +226,6 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
                 "Are you sure you passed in the right recipe checkpoint?"
             ) from e
 
-    # def _convert_to_float32(self, params):
-    #     """Convert nf4 tensors to float32."""
-    #     return [p.to(dtype=torch.float32, device='cpu', copy=True) for p in params]
-
-    # def _convert_adapter_params_to_float32(self):
-    #     float32_params = {}
-    #     for key, param in self.adapter_params.items():
-    #         float32_param = param.to(dtype=torch.float32, device='cpu')
-    #         float32_params[key] = float32_param
-    #         # Update the model's parameter
-    #         with torch.no_grad():
-    #             param.data = float32_param.data
-    #     return float32_params
-
-    # def _convert_model_params_to_float32(self):
-    #     float32_params = []
-    #     for param in self._model.parameters():
-    #         float32_param = param.to(dtype=torch.float32, device='cpu')
-    #         float32_params.append(float32_param)
-    #         # Update the model's parameter
-    #         with torch.no_grad():
-    #             param.data = float32_param.data
-    #     return float32_params
-
-    # def _convert_model_params_to_float32(self):
-    #     float32_params = []
-    #     for param in self._model.parameters():
-    #         if param.dtype != torch.float32:
-    #             float32_param = param.to(dtype=torch.float32)
-    #             float32_params.append(float32_param)
-    #             # Update the model's parameter
-    #             with torch.no_grad():
-    #                 param.data = float32_param.data
-    #         else:
-    #             float32_params.append(param)
-    #     return float32_params
-
-    # def _convert_model_params_to_float32(self):
-    #     float32_params = []
-    #     for param in self._model.parameters():
-    #         if param.dtype != torch.float32:
-    #             try:
-    #                 float32_param = param.to(dtype=torch.float32)
-    #             except Exception:
-    #                 # If conversion fails, create a new tensor with the same data
-    #                 float32_param = torch.tensor(param.data, dtype=torch.float32)
-    #             float32_params.append(float32_param)
-    #             # Update the model's parameter
-    #             with torch.no_grad():
-    #                 param.data = float32_param.data
-    #         else:
-    #             float32_params.append(param)
-    #     return float32_params
-
-    def _convert_model_params_to_float32(self):
-        float32_params = []
-        for param in self._model.parameters():
-            if hasattr(param, 'dtype') and str(param.dtype) == 'NF4':
-                # Convert nf4 tensor to float32 on CPU
-                float32_param = param.detach().cpu().to(dtype=torch.float32)
-                float32_params.append(float32_param)
-                # Update the model's parameter
-                with torch.no_grad():
-                    param.data = float32_param.to(param.device)
-            elif param.dtype != torch.float32:
-                try:
-                    float32_param = param.to(dtype=torch.float32)
-                except Exception:
-                    # If conversion fails, create a new tensor with the same data
-                    float32_param = torch.tensor(param.data, dtype=torch.float32)
-                float32_params.append(float32_param)
-                # Update the model's parameter
-                with torch.no_grad():
-                    param.data = float32_param.data
-            else:
-                float32_params.append(param)
-        return float32_params
-
-
-    # def _convert_to_nf4(self, params):
-    #     """Convert float32 tensors back to nf4."""
-    #     return [p.to(dtype=torch.nf4) for p in params]
-
-    # def _convert_adapter_params_to_nf4(self, float32_params):
-    #     for (key, param), float32_param in zip(self.adapter_params.items(), float32_params):
-    #         nf4_param = float32_param.to(dtype=torch.nf4)
-    #         with torch.no_grad():
-    #             param.data.copy_(nf4_param.data)
-    #         self.adapter_params[key] = param
-
-    # def _convert_model_params_to_nf4(self, float32_params):
-    #     for param, float32_param in zip(self._model.parameters(), float32_params):
-    #         nf4_param = float32_param.to(dtype=torch.nf4)
-    #         with torch.no_grad():
-    #             param.data.copy_(nf4_param.data)
-
-    # def _convert_model_params_to_nf4(self, float32_params):
-    #     for param, float32_param in zip(self._model.parameters(), float32_params):
-    #         if param.dtype != torch.nf4:
-    #             nf4_param = float32_param.to(dtype=torch.nf4)
-    #             with torch.no_grad():
-    #                 param.data.copy_(nf4_param.data)
-
-    # def _convert_model_params_to_nf4(self, float32_params):
-    #     for param, float32_param in zip(self._model.parameters(), float32_params):
-    #         if param.dtype != torch.nf4:
-    #             try:
-    #                 nf4_param = float32_param.to(dtype=torch.nf4)
-    #             except Exception:
-    #                 # If conversion fails, create a new tensor with the same data
-    #                 nf4_param = torch.tensor(float32_param.data, dtype=torch.nf4)
-    #             with torch.no_grad():
-    #                 param.data.copy_(nf4_param.data)
-
-    def _convert_model_params_to_nf4(self, float32_params):
-        for param, float32_param in zip(self._model.parameters(), float32_params):
-            if hasattr(param, 'dtype') and str(param.dtype) == 'NF4':
-                # Convert float32 tensor to nf4 on CPU
-                nf4_param = float32_param.detach().cpu().to(dtype=torch.nf4)
-                with torch.no_grad():
-                    param.data.copy_(nf4_param.to(param.device))
-            elif hasattr(param, 'dtype') and str(param.dtype) != 'NF4':
-                try:
-                    nf4_param = float32_param.to(dtype=torch.nf4)
-                except Exception:
-                    # If conversion fails, create a new tensor with the same data
-                    nf4_param = torch.tensor(float32_param.data, dtype=torch.nf4)
-                with torch.no_grad():
-                    param.data.copy_(nf4_param.data)
-
-    # def _filter_trainable_params(self):
-    #     """Filter out parameters that do not require gradients."""
-    #     return [p for p in self._model.parameters() if p.requires_grad]
-
-
     def setup(self, cfg: DictConfig) -> None:
         """
         Setup the recipe state. This includes recipe state (if resume_from_checkpoint is True),
@@ -416,22 +281,9 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
             print(f"Global IP: {hivemind.utils.networking.choose_ip_address(self._dht.get_visible_maddrs())}")
             print(f"To join the training, use initial_peers = {[str(addr) for addr in self._dht.get_visible_maddrs()]}")
 
-            # Filter trainable params
-            # trainable_params = self._filter_trainable_params()
-
             print(f"Type of adapter_params: {type(self.adapter_params)}")
 
-            # # Extract just the parameter values from self.adapter_params
             # adapter_params_list = list(self.adapter_params.values())
-
-            # # Convert parameters to float32 for averaging
-            # float_params = self._convert_to_float32(adapter_params_list)
-
-            # Convert parameters to float32 for averaging
-            #float32_params = self._convert_adapter_params_to_float32()
-
-            # Convert parameters to float32 for averaging
-            float32_params = self._convert_model_params_to_float32()
 
             # Wrap the optimizer with Hivemind
             self._optimizer = hivemind.Optimizer(
@@ -440,24 +292,12 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
                 batch_size_per_step=8,      # each call to opt.step adds this many samples towards the next epoch
                 target_batch_size=1000,     # after peers collectively process this many samples, average weights and begin the next epoch
                 optimizer=self._optimizer,  # wrap the SGD optimizer defined above
-                params=float32_params,
+                params=self.adapter_params,
                 use_local_updates=True,     # perform optimizer steps with local gradients, average parameters in background
                 matchmaking_time=3.0,       # when averaging parameters, gather peers in background for up to this many seconds
                 averaging_timeout=10.0,     # give up on averaging if not successful in this many seconds
                 verbose=True,               # print logs incessently
             )
-
-            # # Convert parameters back to their original dtype after averaging and update self.adapter_params
-            # for (key, param), float_param in zip(self.adapter_params.items(), float_params):
-            #     nf4_param = float_param.to(dtype=torch.nf4)
-            #     param.data.copy_(nf4_param)
-            #     self.adapter_params[key] = param
-
-            # # Convert parameters back to their original dtype after averaging and update self.adapter_params
-            # self._convert_adapter_params_to_nf4(float32_params)
-
-            # Convert parameters back to their original dtype after averaging and update self._model.parameters()
-            self._convert_model_params_to_nf4(float32_params)
         else:
             log.warning("No host_maddrs provided. DHT and Hivemind optimizer not initialized.")
 
