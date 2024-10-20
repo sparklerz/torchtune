@@ -283,7 +283,8 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
 
             print(f"Type of adapter_params: {type(self.adapter_params)}")
 
-            # adapter_params_list = list(self.adapter_params.values())
+            # Convert adapter_params to the format required by Hivemind
+            hivemind_adapter_params = [{"params": list(self.adapter_params.values())}]
 
             # Wrap the optimizer with Hivemind
             self._optimizer = hivemind.Optimizer(
@@ -292,12 +293,17 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
                 batch_size_per_step=8,      # each call to opt.step adds this many samples towards the next epoch
                 target_batch_size=1000,     # after peers collectively process this many samples, average weights and begin the next epoch
                 optimizer=self._optimizer,  # wrap the SGD optimizer defined above
-                params=self._model.parameters(),
+                params=hivemind_adapter_params,
                 use_local_updates=True,     # perform optimizer steps with local gradients, average parameters in background
                 matchmaking_time=3.0,       # when averaging parameters, gather peers in background for up to this many seconds
                 averaging_timeout=10.0,     # give up on averaging if not successful in this many seconds
                 verbose=True,               # print logs incessently
             )
+            
+            # Update self.adapter_params with the averaged values
+            for param_group in hivemind_adapter_params:
+                for i, (name, _) in enumerate(self.adapter_params.items()):
+                    self.adapter_params[name] = param_group['params'][i]
         else:
             log.warning("No host_maddrs provided. DHT and Hivemind optimizer not initialized.")
 
