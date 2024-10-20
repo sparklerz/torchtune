@@ -109,6 +109,10 @@ _ALL_RECIPES = [
         file_path="lora_finetune_single_device_first.py",
         configs=[
             Config(
+                name="llama2/7B_lora_single_device",
+                file_path="llama2/7B_lora_single_device.yaml",
+            ),
+            Config(
                 name="llama2/7B_qlora_single_device",
                 file_path="llama2/7B_qlora_single_device.yaml",
             ),
