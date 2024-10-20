@@ -283,8 +283,14 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
 
             print(f"Type of adapter_params: {type(self.adapter_params)}")
 
-            for name, param in self.adapter_params.items():
-                print(f"Data type of {name}: {param.dtype}")
+            # for name, param in self.adapter_params.items():
+            #     print(f"Data type of {name}: {param.dtype}")
+
+            # Get the first key from the adapter_params dictionary
+            first_key = next(iter(self.adapter_params))
+
+            # Print the data type of the parameters for the first key
+            print(f"Data type of parameters for key '{first_key}': {type(self.adapter_params[first_key])}")
 
             # Convert adapter_params to the format required by Hivemind
             hivemind_adapter_params = [{"params": [p for p in self.adapter_params.values() if p.requires_grad]}]
