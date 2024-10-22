@@ -302,9 +302,9 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
             self._optimizer = hivemind.Optimizer(
                 dht=self._dht,              # use a DHT that is connected with other peers            
                 run_id='my_llama_run',      # unique identifier of this collaborative run
-                batch_size_per_step=8,      # each call to opt.step adds this many samples towards the next epoch
+                batch_size_per_step=1,      # each call to opt.step adds this many samples towards the next epoch
                 target_batch_size=1000,     # after peers collectively process this many samples, average weights and begin the next epoch
-                optimizer=self._optimizer,  # wrap the SGD optimizer defined above
+                optimizer=self._optimizer,  # wrap the optimizer defined above
                 params=hivemind_adapter_params,
                 use_local_updates=True,     # perform optimizer steps with local gradients, average parameters in background
                 matchmaking_time=3.0,       # when averaging parameters, gather peers in background for up to this many seconds
