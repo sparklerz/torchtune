@@ -293,7 +293,10 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
             print(f"Data type of parameters for key '{first_key}': {type(self.adapter_params[first_key])}")
 
             # Convert adapter_params to the format required by Hivemind
-            hivemind_adapter_params = [{"params": [p for p in self.adapter_params.values() if p.requires_grad]}]
+            hivemind_adapter_params = [{"params": list(self.adapter_params.values())}]
+
+            # # Convert adapter_params to the format required by Hivemind
+            # hivemind_adapter_params = [{"params": [p for p in self.adapter_params.values() if p.requires_grad]}]
 
             # Wrap the optimizer with Hivemind
             self._optimizer = hivemind.Optimizer(
@@ -310,9 +313,14 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
             )
 
             # Update self.adapter_params with the averaged values
-            for name, param in self.adapter_params.items():
-                if param.requires_grad:
-                    param.data = next(p for p in hivemind_adapter_params[0]['params'] if p.shape == param.shape)
+            for param_group in hivemind_adapter_params:
+                for i, (name, _) in enumerate(self.adapter_params.items()):
+                    self.adapter_params[name] = param_group['params'][i]
+
+            # # Update self.adapter_params with the averaged values
+            # for name, param in self.adapter_params.items():
+            #     if param.requires_grad:
+            #         param.data = next(p for p in hivemind_adapter_params[0]['params'] if p.shape == param.shape)
         else:
             log.warning("No host_maddrs provided. DHT and Hivemind optimizer not initialized.")
 
