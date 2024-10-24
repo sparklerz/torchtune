@@ -260,14 +260,15 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
         self._tokenizer = config.instantiate(cfg.tokenizer)
         print("Tokenizer is initialized from file.")
 
-        self._optimizer = self._setup_optimizer(
+        # Define a lambda function for creating the optimizer
+        optimizer_lambda = lambda params: self._setup_optimizer(
             cfg_optimizer=cfg.optimizer,
             opt_state_dict=(
                 checkpoint_dict[training.OPT_KEY]
                 if self._resume_from_checkpoint
                 else None
             ),
-        )
+        )(params)
 
         print(f"self._host_maddrs - {self._host_maddrs}")
 
@@ -293,7 +294,7 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
             print(f"Data type of parameters for key '{first_key}': {type(self.adapter_params[first_key])}")
 
             # Convert adapter_params to the format required by Hivemind
-            hivemind_adapter_params = [{"params": list(self.adapter_params.values())}]
+            # hivemind_adapter_params = [{"params": list(self.adapter_params.values())}]
 
             # # Convert adapter_params to the format required by Hivemind
             # hivemind_adapter_params = [{"params": [p for p in self.adapter_params.values() if p.requires_grad]}]
@@ -304,8 +305,8 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
                 run_id='my_llama_run',      # unique identifier of this collaborative run
                 batch_size_per_step=1,      # each call to opt.step adds this many samples towards the next epoch
                 target_batch_size=1000,     # after peers collectively process this many samples, average weights and begin the next epoch
-                optimizer=self._optimizer,  # wrap the optimizer defined above
-                params=hivemind_adapter_params,
+                optimizer=optimizer_lambda,  # wrap the optimizer defined above
+                params=self._model.parameters(),
                 use_local_updates=True,     # perform optimizer steps with local gradients, average parameters in background
                 matchmaking_time=3.0,       # when averaging parameters, gather peers in background for up to this many seconds
                 averaging_timeout=10.0,     # give up on averaging if not successful in this many seconds
@@ -532,12 +533,14 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
     def _setup_optimizer(
         self, cfg_optimizer: DictConfig, opt_state_dict: Optional[Dict[str, Any]] = None
     ) -> Optimizer:
-        optimizer = config.instantiate(cfg_optimizer, self._model.parameters())
-        if opt_state_dict:
-            optimizer.load_state_dict(opt_state_dict)
-
-        print("Optimizer and loss are initialized.")
-        return optimizer
+        def create_optimizer(params):
+            optimizer = config.instantiate(cfg_optimizer, params)
+            if opt_state_dict:
+                optimizer.load_state_dict(opt_state_dict)
+            return optimizer
+        
+        print("Optimizer is set up.")
+        return create_optimizer
 
     def _setup_lr_scheduler(
         self,
