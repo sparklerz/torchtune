@@ -314,6 +314,8 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
                 verbose=True,               # print logs incessently
             )
 
+            print("After hivemind.Optimizer wrapper")
+
             # # Update self.adapter_params with the averaged values
             # for param_group in hivemind_adapter_params:
             #     for i, (name, _) in enumerate(self.adapter_params.items()):
