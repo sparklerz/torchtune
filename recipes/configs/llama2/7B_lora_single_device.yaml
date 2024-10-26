@@ -68,7 +68,7 @@ loss:
 # Training
 epochs: 1
 max_steps_per_epoch: null
-gradient_accumulation_steps: 64
+gradient_accumulation_steps: 8
 compile: False
 
 # Logging
@@ -85,7 +85,7 @@ dtype: bf16
 
 # Activations Memory
 enable_activation_checkpointing: True
-enable_activation_offloading: False
+enable_activation_offloading: True
 
 # Show case the usage of pytorch profiler
 # Set enabled to False as it's only needed for debugging training

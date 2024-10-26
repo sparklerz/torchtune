@@ -304,7 +304,7 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
                 dht=self._dht,              # use a DHT that is connected with other peers            
                 run_id='my_llama_run',      # unique identifier of this collaborative run
                 batch_size_per_step=1,      # each call to opt.step adds this many samples towards the next epoch
-                target_batch_size=1000,     # after peers collectively process this many samples, average weights and begin the next epoch
+                target_batch_size=100,     # after peers collectively process this many samples, average weights and begin the next epoch
                 optimizer=optimizer_lambda,  # wrap the optimizer defined above
                 params=self._model.parameters(),
                 use_local_updates=True,     # perform optimizer steps with local gradients, average parameters in background
@@ -314,10 +314,10 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
                 verbose=True,               # print logs incessently
             )
 
-            # Update self.adapter_params with the averaged values
-            for param_group in hivemind_adapter_params:
-                for i, (name, _) in enumerate(self.adapter_params.items()):
-                    self.adapter_params[name] = param_group['params'][i]
+            # # Update self.adapter_params with the averaged values
+            # for param_group in hivemind_adapter_params:
+            #     for i, (name, _) in enumerate(self.adapter_params.items()):
+            #         self.adapter_params[name] = param_group['params'][i]
 
             # # Update self.adapter_params with the averaged values
             # for name, param in self.adapter_params.items():
