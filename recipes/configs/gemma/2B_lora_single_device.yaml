@@ -62,7 +62,7 @@ loss:
   _component_: torchtune.modules.loss.CEWithChunkedOutputLoss
 
 # Fine-tuning arguments
-batch_size: 4
+batch_size: 1
 epochs: 3
 max_steps_per_epoch: null
 gradient_accumulation_steps: 4
@@ -73,7 +73,7 @@ device: cuda
 
 # Memory management
 enable_activation_checkpointing: True
-enable_activation_offloading: False
+enable_activation_offloading: True
 
 # Reduced precision
 dtype: bf16
