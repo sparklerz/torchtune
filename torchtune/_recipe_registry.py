@@ -140,6 +140,41 @@ _ALL_RECIPES = [
         supports_distributed=False,
     ),
     Recipe(
+        name="hivemind_lora_finetune_second_peer",
+        file_path="lora_finetune_single_device_second.py",
+        configs=[
+            Config(
+                name="qwen2/0.5B_lora_single_device",
+                file_path="qwen2/0.5B_lora_single_device.yaml",
+            ),
+            Config(
+                name="llama3_2/1B_lora_single_device",
+                file_path="llama3_2/1B_lora_single_device.yaml",
+            ),
+            Config(
+                name="qwen2/1.5B_lora_single_device",
+                file_path="qwen2/1.5B_lora_single_device.yaml",
+            ),
+            Config(
+                name="gemma/2B_lora_single_device",
+                file_path="gemma/2B_lora_single_device.yaml",
+            ),
+            Config(
+                name="llama3_2/3B_lora_single_device",
+                file_path="llama3_2/3B_lora_single_device.yaml",
+            ),
+            Config(
+                name="llama2/7B_lora_single_device",
+                file_path="llama2/7B_lora_single_device.yaml",
+            ),
+            Config(
+                name="llama2/7B_qlora_single_device",
+                file_path="llama2/7B_qlora_single_device.yaml",
+            ),
+        ],
+        supports_distributed=False,
+    ),
+    Recipe(
         name="lora_finetune_single_device",
         file_path="lora_finetune_single_device.py",
         configs=[

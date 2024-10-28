@@ -40,6 +40,8 @@ from torchtune.training import (
 )
 from tqdm import tqdm
 
+import hivemind
+
 log = utils.get_logger("DEBUG")
 
 
@@ -141,12 +143,6 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
         self._log_every_n_steps = cfg.get("log_every_n_steps", 1)
         self._log_peak_memory_stats = cfg.get("log_peak_memory_stats", False)
 
-        if self._log_peak_memory_stats and self._device.type != "cuda":
-            log.info(
-                "log_peak_memory_stats was set to True, however, training does not use cuda. Setting log_peak_memory_stats=False."
-            )
-            self._log_peak_memory_stats = False
-
         # These are public properties which are updated by the checkpoint loader
         # when ``resume_from_checkpoint`` is `True` or validated in tests
         self.seed = training.set_seed(seed=cfg.seed)
@@ -165,6 +161,11 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
             raise RuntimeError(
                 "enable_activation_offloading should only be enabled for training on CUDA"
             )
+        self._host_maddrs = cfg.get("host_maddrs", None)
+        print(f"self._host_maddrs - {self._host_maddrs}")
+
+        self._initial_peers = cfg.get("initial_peers", None)
+        print(f"self._initial_peers - {self._initial_peers}")
 
     def load_checkpoint(self, cfg_checkpointer: DictConfig) -> Dict[str, Any]:
         """
@@ -260,16 +261,82 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
         )
 
         self._tokenizer = config.instantiate(cfg.tokenizer)
-        log.info("Tokenizer is initialized from file.")
+        print("Tokenizer is initialized from file.")
 
-        self._optimizer = self._setup_optimizer(
+        # Define a lambda function for creating the optimizer
+        optimizer_lambda = lambda params: self._setup_optimizer(
             cfg_optimizer=cfg.optimizer,
             opt_state_dict=(
                 checkpoint_dict[training.OPT_KEY]
                 if self._resume_from_checkpoint
                 else None
             ),
-        )
+        )(params)
+
+        print(f"self._host_maddrs - {self._host_maddrs}")
+
+        print(f"self._initial_peers - {self._initial_peers}")
+
+        # Set up DHT
+        if self._host_maddrs and self._initial_peers:
+            self._dht = hivemind.DHT(
+                host_maddrs=[self._host_maddrs],
+                initial_peers=[self._initial_peers],
+                start=True
+            )
+            print('\n'.join(str(addr) for addr in self._dht.get_visible_maddrs()))
+            print(f"Global IP: {hivemind.utils.networking.choose_ip_address(self._dht.get_visible_maddrs())}")
+            print(f"To join the training, use initial_peers = {[str(addr) for addr in self._dht.get_visible_maddrs()]}")
+
+            print(f"Type of adapter_params: {type(self.adapter_params)}")
+
+            # for name, param in self.adapter_params.items():
+            #     print(f"Data type of {name}: {param.dtype}")
+
+            # Get the first key from the adapter_params dictionary
+            first_key = next(iter(self.adapter_params))
+
+            # Print the data type of the parameters for the first key
+            print(f"Data type of parameters for key '{first_key}': {type(self.adapter_params[first_key])}")
+
+            # Convert adapter_params to the format required by Hivemind
+            # hivemind_adapter_params = [{"params": list(self.adapter_params.values())}]
+
+            # # Convert adapter_params to the format required by Hivemind
+            # hivemind_adapter_params = [{"params": [p for p in self.adapter_params.values() if p.requires_grad]}]
+
+            # Wrap the optimizer with Hivemind
+            self._optimizer = hivemind.Optimizer(
+                dht=self._dht,              # use a DHT that is connected with other peers            
+                run_id='my_llama_run',      # unique identifier of this collaborative run
+                batch_size_per_step=1,      # each call to opt.step adds this many samples towards the next epoch
+                target_batch_size=100,     # after peers collectively process this many samples, average weights and begin the next epoch
+                optimizer=optimizer_lambda,  # wrap the optimizer defined above
+                params=self._model.parameters(),
+                use_local_updates=True,     # perform optimizer steps with local gradients, average parameters in background
+                matchmaking_time=3.0,       # when averaging parameters, gather peers in background for up to this many seconds
+                averaging_timeout=10.0,     # give up on averaging if not successful in this many seconds
+                offload_optimizer=True,
+                verbose=True,               # print logs incessently
+            )
+
+            print("After hivemind.Optimizer wrapper")
+
+            self._optimizer.load_state_from_peers()
+
+            print("After load_state_from_peers")
+
+            # # Update self.adapter_params with the averaged values
+            # for param_group in hivemind_adapter_params:
+            #     for i, (name, _) in enumerate(self.adapter_params.items()):
+            #         self.adapter_params[name] = param_group['params'][i]
+
+            # # Update self.adapter_params with the averaged values
+            # for name, param in self.adapter_params.items():
+            #     if param.requires_grad:
+            #         param.data = next(p for p in hivemind_adapter_params[0]['params'] if p.shape == param.shape)
+        else:
+            log.warning("No host_maddrs provided. DHT and Hivemind optimizer not initialized.")
 
         # initialize loss
         self._loss_fn = config.instantiate(cfg.loss)
@@ -280,7 +347,7 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
             # set num_output_chunks for model
             self._model.set_num_output_chunks(self._loss_fn.num_output_chunks)
 
-        log.info("Loss is initialized.")
+        print("Loss is initialized.")
 
         # Dataloader depends on the tokenizer and loss_fn and should be
         # setup after all of these are setup
@@ -308,6 +375,10 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
         ):
             self._steps_per_epoch = self.max_steps_per_epoch
             self.global_step = self.epochs_run * self._steps_per_epoch
+
+        for i, group in enumerate(self._optimizer.param_groups):
+            if 'initial_lr' not in group:
+                print(f"'initial_lr' not found in param_group {i}")
 
         # Learning rate scheduler can only be set up after number of steps
         # has been computed
@@ -383,7 +454,7 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
 
         profiler, profiler_cfg = config.instantiate(cfg_profiler)
 
-        log.info(f" Profiler config after instantiation: {profiler_cfg}")
+        print(f" Profiler config after instantiation: {profiler_cfg}")
 
         self.profiler_profile_memory = profiler_cfg.get("profile_memory", False)
         if profiler_cfg["enabled"]:
@@ -468,7 +539,7 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
                     lambda *args: noop_ctx.__exit__(), always_call=True
                 )
 
-        log.info(f"Model is initialized with precision {self._dtype}.")
+        print(f"Model is initialized with precision {self._dtype}.")
 
         if self._device.type == "cuda":
             memory_stats = training.get_memory_stats(device=self._device)
@@ -478,12 +549,18 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
     def _setup_optimizer(
         self, cfg_optimizer: DictConfig, opt_state_dict: Optional[Dict[str, Any]] = None
     ) -> Optimizer:
-        optimizer = config.instantiate(cfg_optimizer, self._model.parameters())
-        if opt_state_dict:
-            optimizer.load_state_dict(opt_state_dict)
-
-        log.info("Optimizer and loss are initialized.")
-        return optimizer
+        def create_optimizer(params):
+            optimizer = config.instantiate(cfg_optimizer, params)
+            if opt_state_dict:
+                optimizer.load_state_dict(opt_state_dict)
+            # Ensure 'initial_lr' is set for each param group
+            for group in optimizer.param_groups:
+                if 'initial_lr' not in group:
+                    group['initial_lr'] = group.get('lr', cfg_optimizer.lr)  # Default to 1e-3 or another appropriate value
+            return optimizer
+        
+        print("Optimizer is set up.")
+        return create_optimizer
 
     def _setup_lr_scheduler(
         self,
@@ -498,7 +575,7 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
             last_epoch=last_epoch,
         )
 
-        log.info("Learning rate scheduler is initialized.")
+        print("Learning rate scheduler is initialized.")
         return lr_scheduler
 
     def _setup_data(
@@ -553,7 +630,7 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
             ),
         )
 
-        log.info("Dataset and Sampler are initialized.")
+        print("Dataset and Sampler are initialized.")
 
         return sampler, dataloader
 
@@ -637,6 +714,7 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
             labels = labels.reshape(-1)
             logits = logits.reshape(-1, logits.size(-1))
 
+        # Compute loss
         loss = self._loss_fn(logits, labels)
 
         # free logits otherwise it peaks backward memory
@@ -650,7 +728,7 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
         """
 
         if self._compile:
-            log.info(
+            print(
                 "NOTE: torch.compile is enabled and model is compiled in first forward. Expect a relatively slow first iteration."
             )
 
@@ -684,22 +762,15 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
                         torch.cuda.memory._record_memory_history()
 
                     utils.batch_to_device(batch, self._device)
+                    num_tokens += batch["tokens"].numel()
 
-                    # Calculate the number of unmasked tokens in the current batch
-                    # and increment the total number of tokens seen in the step
-                    current_num_tokens = (
-                        batch["labels"] != self._loss_fn.ignore_index
-                    ).sum()
-                    num_tokens += current_num_tokens
-
-                    # Loss is normalized by default so we multiply by the number of tokens
-                    # This way we can normalize by the total number of tokens if we're accumulating gradients
-                    running_loss += self._loss_step(batch) * current_num_tokens
+                    loss = self._loss_step(batch)
+                    loss = loss / self._gradient_accumulation_steps
+                    running_loss += loss
+                    loss.backward()
 
                     # Step with optimizer
                     if (idx + 1) % self._gradient_accumulation_steps == 0:
-                        loss = running_loss / num_tokens
-                        loss.backward()
                         if self._clip_grad_norm is not None:
                             grad_norm = torch.nn.utils.clip_grad_norm_(
                                 self._model.parameters(),
@@ -711,7 +782,7 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
                         # Update the number of steps when the weights are updated
                         self.global_step += 1
 
-                        loss_to_log = loss.item()
+                        loss_to_log = running_loss.item()
                         pbar.update(1)
                         pbar.set_description(
                             f"{curr_epoch + 1}|{self.global_step}|Loss: {loss_to_log}"
@@ -762,9 +833,9 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
 
                 self.epochs_run += 1
                 start_save_checkpoint = time.perf_counter()
-                log.info("Starting checkpoint save...")
+                print("Starting checkpoint save...")
                 self.save_checkpoint(epoch=curr_epoch)
-                log.info(
+                print(
                     "Checkpoint saved in {:.2f} seconds.".format(
                         time.perf_counter() - start_save_checkpoint
                     )
@@ -772,6 +843,8 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
 
     def cleanup(self) -> None:
         self._metric_logger.close()
+        if hasattr(self, '_dht'):
+            self._dht.shutdown()
 
 
 @config.parse
@@ -783,9 +856,12 @@ def recipe_main(cfg: DictConfig) -> None:
         - Parameters specified in config (see available configs through ``tune ls``)
         - Overwritten by arguments from the command-line
     """
+    print("Entering recipe_main method")
     config.log_config(recipe_name="LoRAFinetuneRecipeSingleDevice", cfg=cfg)
     recipe = LoRAFinetuneRecipeSingleDevice(cfg=cfg)
+    print("Entering setup method")
     recipe.setup(cfg=cfg)
+    print("Entering train method")
     recipe.train()
     recipe.cleanup()
 

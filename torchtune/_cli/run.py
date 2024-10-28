@@ -33,7 +33,7 @@ class Run(Subcommand):
             prog="tune run",
             help="Run a recipe. For distributed recipes, this supports all torchrun arguments.",
             description="Run a recipe. For distributed recipes, this supports all torchrun arguments.",
-            usage="tune run [TORCHRUN-OPTIONS] --config [RECIPE-OPTIONS] --host_maddrs [HOST_MADDRS]",
+            usage="tune run [TORCHRUN-OPTIONS] --config [RECIPE-OPTIONS] --host_maddrs [HOST_MADDRS] --initial_peers [INITIAL_PEERS]",
             epilog=textwrap.dedent(
                 """\
                 examples:
@@ -50,8 +50,8 @@ class Run(Subcommand):
                         --config llama2/7B_lora_single_device \
                         model.lora_rank=16 \
 
-                    # Specify host_maddrs for Hivemind
-                    $ tune run lora_finetune_single_device --config llama2/7B_qlora_single_device --host_maddrs /ip4/0.0.0.0/tcp/31337
+                    # Specify host_maddrs and initial peers for Hivemind
+                    $ tune run lora_finetune_single_device --config llama2/7B_qlora_single_device --host_maddrs /ip4/0.0.0.0/tcp/31337 --initial_peers /ip4/209.126.80.197/tcp/7700/p2p/12D3KooWQoypmLELUbrziV6SYj1KcGBPTuGAuSCrPqyw1pWUA7bA
 
                 Remember, you can use `tune cp` to copy a default recipe/config to your local dir and modify the values.
                 """
@@ -90,6 +90,14 @@ For a list of all possible recipes, run `tune ls`."""
             default=None
         )
 
+        # Add the initial_peers argument
+        self._parser.add_argument(
+            "--initial_peers",
+            type=str,
+            help="Initial Peers for Hivemind DHT",
+            default=None
+        )
+
     @record
     def _run_distributed(self, args: argparse.Namespace, is_builtin: bool):
         """Run a recipe with torchrun."""
@@ -110,6 +118,8 @@ For a list of all possible recipes, run `tune ls`."""
         sys.argv = [str(args.recipe)] + args.recipe_args
         if args.host_maddrs:
             sys.argv.extend(["--host_maddrs", args.host_maddrs])
+        if args.initial_peers:
+            sys.argv.extend(["--initial_peers", args.initial_peers])
         if is_builtin:
             # torchtune built-in recipes are specified with an absolute posix path
             runpy.run_path(str(args.recipe), run_name="__main__")
@@ -210,6 +220,11 @@ For a list of all possible recipes, run `tune ls`."""
         if args.host_maddrs:
             print("args.host_maddrs : {args.host_maddrs}")
             args.recipe_args.extend(["--host_maddrs", args.host_maddrs])
+
+        # Add initial_peers to recipe_args if provided
+        if args.initial_peers:
+            print("args.initial_peers : {args.initial_peers}")
+            args.recipe_args.extend(["--initial_peers", args.initial_peers])
 
         # Make sure user code in current directory is importable
         sys.path.append(os.getcwd())

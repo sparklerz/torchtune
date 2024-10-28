@@ -89,6 +89,7 @@ def parse(recipe_main: Recipe) -> Callable[[Recipe], Any]:
             formatter_class=argparse.RawDescriptionHelpFormatter,
         )
         parser.add_argument("--host_maddrs", type=str, help="Host maddrs for Hivemind DHT")
+        parser.add_argument("--initial_peers", type=str, help="Initial Peers for Hivemind DHT")
         
         # Get user-specified args from config and CLI and create params for recipe
         yaml_args, cli_args = parser.parse_known_args()
