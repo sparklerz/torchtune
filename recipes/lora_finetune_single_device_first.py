@@ -370,6 +370,9 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
             if 'initial_lr' not in group:
                 print(f"'initial_lr' not found in param_group {i}")
 
+        for i, group in enumerate(self._optimizer.param_groups):
+            print(f"Param group {i}: {group}")
+
         # Learning rate scheduler can only be set up after number of steps
         # has been computed
         self._lr_scheduler = self._setup_lr_scheduler(
@@ -543,6 +546,10 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
             optimizer = config.instantiate(cfg_optimizer, params)
             if opt_state_dict:
                 optimizer.load_state_dict(opt_state_dict)
+            # Ensure 'initial_lr' is set for each param group
+            for group in optimizer.param_groups:
+                if 'initial_lr' not in group:
+                    group['initial_lr'] = group.get('lr', cfg_optimizer.lr)  # Default to 1e-3 or another appropriate value
             return optimizer
         
         print("Optimizer is set up.")
