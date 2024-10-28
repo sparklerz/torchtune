@@ -366,6 +366,10 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
             self._steps_per_epoch = self.max_steps_per_epoch
             self.global_step = self.epochs_run * self._steps_per_epoch
 
+        for i, group in enumerate(self._optimizer.param_groups):
+            if 'initial_lr' not in group:
+                print(f"'initial_lr' not found in param_group {i}")
+
         # Learning rate scheduler can only be set up after number of steps
         # has been computed
         self._lr_scheduler = self._setup_lr_scheduler(
