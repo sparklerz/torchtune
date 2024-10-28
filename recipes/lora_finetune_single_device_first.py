@@ -370,9 +370,6 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
             if 'initial_lr' not in group:
                 print(f"'initial_lr' not found in param_group {i}")
 
-        for i, group in enumerate(self._optimizer.param_groups):
-            print(f"Param group {i}: {group}")
-
         # Learning rate scheduler can only be set up after number of steps
         # has been computed
         self._lr_scheduler = self._setup_lr_scheduler(
