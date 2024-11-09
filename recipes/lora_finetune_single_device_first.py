@@ -310,7 +310,7 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
                 use_local_updates=True,     # perform optimizer steps with local gradients, average parameters in background
                 matchmaking_time=3.0,       # when averaging parameters, gather peers in background for up to this many seconds
                 averaging_timeout=10.0,     # give up on averaging if not successful in this many seconds
-                offload_optimizer=True,
+                offload_optimizer=False,
                 verbose=True,               # print logs incessently
             )
 
