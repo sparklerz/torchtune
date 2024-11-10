@@ -288,6 +288,12 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
             print(f"Global IP: {hivemind.utils.networking.choose_ip_address(self._dht.get_visible_maddrs())}")
             print(f"To join the training, use initial_peers = {[str(addr) for addr in self._dht.get_visible_maddrs()]}")
 
+             # Verify DHT connection
+            connected_peers = self._dht.get_visible_maddrs()
+            if not connected_peers:
+                raise RuntimeError("No peers found in DHT network")
+            print(f"Connected to {len(connected_peers)} peers in DHT network")
+
             print(f"Type of adapter_params: {type(self.adapter_params)}")
 
             # for name, param in self.adapter_params.items():
@@ -314,15 +320,30 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
                 optimizer=optimizer_lambda,  # wrap the optimizer defined above
                 params=self._model.parameters(),
                 use_local_updates=True,     # perform optimizer steps with local gradients, average parameters in background
-                matchmaking_time=3.0,       # when averaging parameters, gather peers in background for up to this many seconds
-                averaging_timeout=10.0,     # give up on averaging if not successful in this many seconds
+                matchmaking_time=30.0,       # when averaging parameters, gather peers in background for up to this many seconds
+                averaging_timeout=60.0,      # give up on averaging if not successful in this many seconds
+                load_state_timeout=120.0,     # Add explicit timeout for loading state
                 offload_optimizer=False,
                 verbose=True,               # print logs incessently
             )
 
             print("After hivemind.Optimizer wrapper")
 
-            self._optimizer.load_state_from_peers()
+            MAX_RETRIES = 3
+            retry_count = 0
+            while retry_count < MAX_RETRIES:
+                try:
+                    print(f"Attempting to load state from peers (attempt {retry_count + 1}/{MAX_RETRIES})")
+                    self._optimizer.load_state_from_peers()
+                    print("Successfully loaded state from peers")
+                    break
+                except Exception as e:
+                    retry_count += 1
+                    if retry_count == MAX_RETRIES:
+                        print(f"Failed to load state after {MAX_RETRIES} attempts: {str(e)}")
+                        raise
+                    print(f"Retry {retry_count}/{MAX_RETRIES} after error: {str(e)}")
+                    time.sleep(5)  # Wait before retrying
 
             print("After load_state_from_peers")
 
