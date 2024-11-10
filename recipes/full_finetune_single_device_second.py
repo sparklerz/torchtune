@@ -148,6 +148,9 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         self._host_maddrs = cfg.get("host_maddrs", None)
         print(f"self._host_maddrs - {self._host_maddrs}")
 
+        self._initial_peers = cfg.get("initial_peers", None)
+        print(f"self._initial_peers - {self._initial_peers}")
+
     def load_checkpoint(self, cfg_checkpointer: DictConfig) -> Dict[str, Any]:
         """
         Extract the checkpoint state from file and validate. If resume_from_checkpoint
@@ -241,32 +244,19 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
 
         print(f"self._host_maddrs - {self._host_maddrs}")
 
+        print(f"self._initial_peers - {self._initial_peers}")
+
         # Set up DHT
-        if self._host_maddrs:
+        if self._host_maddrs and self._initial_peers:
             self._dht = hivemind.DHT(
                 host_maddrs=[self._host_maddrs],
-                start=True
+                initial_peers=[self._initial_peers],
+                start=True,
+                wait_timeout=300
             )
             print('\n'.join(str(addr) for addr in self._dht.get_visible_maddrs()))
             print(f"Global IP: {hivemind.utils.networking.choose_ip_address(self._dht.get_visible_maddrs())}")
             print(f"To join the training, use initial_peers = {[str(addr) for addr in self._dht.get_visible_maddrs()]}")
-
-            print(f"Type of adapter_params: {type(self.adapter_params)}")
-
-            # for name, param in self.adapter_params.items():
-            #     print(f"Data type of {name}: {param.dtype}")
-
-            # Get the first key from the adapter_params dictionary
-            first_key = next(iter(self.adapter_params))
-
-            # Print the data type of the parameters for the first key
-            print(f"Data type of parameters for key '{first_key}': {type(self.adapter_params[first_key])}")
-
-            # Convert adapter_params to the format required by Hivemind
-            # hivemind_adapter_params = [{"params": list(self.adapter_params.values())}]
-
-            # # Convert adapter_params to the format required by Hivemind
-            # hivemind_adapter_params = [{"params": [p for p in self.adapter_params.values() if p.requires_grad]}]
 
             # Wrap the optimizer with Hivemind
             self._optimizer = hivemind.Optimizer(
@@ -279,21 +269,30 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                 use_local_updates=True,     # perform optimizer steps with local gradients, average parameters in background
                 matchmaking_time=60.0,       # when averaging parameters, gather peers in background for up to this many seconds
                 averaging_timeout=120.0,     # give up on averaging if not successful in this many seconds
+                load_state_timeout=180.0,    # Add explicit timeout for loading state
                 offload_optimizer=False,
                 verbose=True,               # print logs incessently
             )
 
             print("After hivemind.Optimizer wrapper")
 
-            # # Update self.adapter_params with the averaged values
-            # for param_group in hivemind_adapter_params:
-            #     for i, (name, _) in enumerate(self.adapter_params.items()):
-            #         self.adapter_params[name] = param_group['params'][i]
+            MAX_RETRIES = 3
+            retry_count = 0
+            while retry_count < MAX_RETRIES:
+                try:
+                    print(f"Attempting to load state from peers (attempt {retry_count + 1}/{MAX_RETRIES})")
+                    self._optimizer.load_state_from_peers()
+                    print("Successfully loaded state from peers")
+                    break
+                except Exception as e:
+                    retry_count += 1
+                    if retry_count == MAX_RETRIES:
+                        print(f"Failed to load state after {MAX_RETRIES} attempts: {str(e)}")
+                        raise
+                    print(f"Retry {retry_count}/{MAX_RETRIES} after error: {str(e)}")
+                    time.sleep(5)  # Wait before retrying
 
-            # # Update self.adapter_params with the averaged values
-            # for name, param in self.adapter_params.items():
-            #     if param.requires_grad:
-            #         param.data = next(p for p in hivemind_adapter_params[0]['params'] if p.shape == param.shape)
+            print("After load_state_from_peers")
         else:
             log.warning("No host_maddrs provided. DHT and Hivemind optimizer not initialized.")
 
