@@ -251,23 +251,6 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             print(f"Global IP: {hivemind.utils.networking.choose_ip_address(self._dht.get_visible_maddrs())}")
             print(f"To join the training, use initial_peers = {[str(addr) for addr in self._dht.get_visible_maddrs()]}")
 
-            print(f"Type of adapter_params: {type(self.adapter_params)}")
-
-            # for name, param in self.adapter_params.items():
-            #     print(f"Data type of {name}: {param.dtype}")
-
-            # Get the first key from the adapter_params dictionary
-            first_key = next(iter(self.adapter_params))
-
-            # Print the data type of the parameters for the first key
-            print(f"Data type of parameters for key '{first_key}': {type(self.adapter_params[first_key])}")
-
-            # Convert adapter_params to the format required by Hivemind
-            # hivemind_adapter_params = [{"params": list(self.adapter_params.values())}]
-
-            # # Convert adapter_params to the format required by Hivemind
-            # hivemind_adapter_params = [{"params": [p for p in self.adapter_params.values() if p.requires_grad]}]
-
             # Wrap the optimizer with Hivemind
             self._optimizer = hivemind.Optimizer(
                 dht=self._dht,              # use a DHT that is connected with other peers            
@@ -284,16 +267,6 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             )
 
             print("After hivemind.Optimizer wrapper")
-
-            # # Update self.adapter_params with the averaged values
-            # for param_group in hivemind_adapter_params:
-            #     for i, (name, _) in enumerate(self.adapter_params.items()):
-            #         self.adapter_params[name] = param_group['params'][i]
-
-            # # Update self.adapter_params with the averaged values
-            # for name, param in self.adapter_params.items():
-            #     if param.requires_grad:
-            #         param.data = next(p for p in hivemind_adapter_params[0]['params'] if p.shape == param.shape)
         else:
             log.warning("No host_maddrs provided. DHT and Hivemind optimizer not initialized.")
 
