@@ -619,9 +619,13 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
 
     def _loss_step(self, batch: Dict[str, torch.Tensor]) -> torch.Tensor:
         # Shape [b, s], needed for the loss not the model
+        print("Starting forward pass")
+        
         labels = batch.pop("labels")
 
         logits = self._model(**batch)
+
+        print("Completed forward pass")
 
         # Shift labels to compute loss
         # equivalent to doing labels[..., 1:] and logits[..., :-1, :]
@@ -698,7 +702,9 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                 # Step with optimizer
                 if (idx + 1) % self._gradient_accumulation_steps == 0:
                     loss = running_loss / num_tokens
+                    print("Starting backward pass")
                     loss.backward()
+                    print("Completed backward pass")
                     if self._clip_grad_norm is not None:
                         grad_norm = torch.nn.utils.clip_grad_norm_(
                             self._model.parameters(),
@@ -718,6 +724,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                     pbar.set_description(
                         f"{curr_epoch + 1}|{self.global_step}|Loss: {loss_to_log}"
                     )
+                    print()
 
                     # Log per-step metrics
                     if self.global_step % self._log_every_n_steps == 0:
