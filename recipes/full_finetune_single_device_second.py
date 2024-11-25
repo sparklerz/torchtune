@@ -737,7 +737,9 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                             max_norm=float(self._clip_grad_norm),
                         )
                     if not self._optimizer_in_bwd:
+                        print("Calling self._optimizer.step()")
                         self._optimizer.step()
+                        print("Calling self._optimizer.zero_grad()")
                         self._optimizer.zero_grad(set_to_none=True)
 
                     # Need to fix `lr_scheduler.step()` before `optimizer.step()` warning
@@ -827,6 +829,7 @@ def recipe_main(cfg: DictConfig) -> None:
     recipe.setup(cfg=cfg)
     print("Entering train method")
     recipe.train()
+    print("Entering cleanup method")
     recipe.cleanup()
 
 
