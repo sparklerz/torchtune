@@ -801,7 +801,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                 # Note we are stepping each batch, which might not include optimizer step in the trace
                 # if the schedule cycle doesn't align with gradient accumulation.
                 self._profiler.step()
-                time.sleep(15)
+                time.sleep(7)
 
             self.epochs_run += 1
             self.save_checkpoint(epoch=curr_epoch)
