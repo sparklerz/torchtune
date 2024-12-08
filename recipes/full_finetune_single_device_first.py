@@ -213,7 +213,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         # log config with parameter override
         self._metric_logger.log_config(cfg)
 
-        ckpt_dict = self.load_checkpoint(cfg.checkpointer)
+        ckpt_dict = self.load_checkpoint(cfg.checkpointer)#here load checkpoint
 
         # ``_setup_model`` handles initialization and loading the state dict. This method
         # should be called before ``_setup_optimizer`` since transforming the optimizer
@@ -285,7 +285,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         # sampler and dataloader depend on the tokenizer and loss_fn and should be
         # setup after both of these are initialized
         collate_name = cfg.get("collate_fn", "torchtune.data.padded_collate_sft")
-        self._sampler, self._dataloader = self._setup_data(
+        self._sampler, self._dataloader = self._setup_data(#here - dataloader
             cfg_dataset=cfg.dataset,
             shuffle=cfg.shuffle,
             batch_size=cfg.batch_size,
@@ -535,7 +535,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         print("Learning rate scheduler is initialized.")
         return lr_scheduler
 
-    def _setup_data(
+    def _setup_data(#here - dataloader
         self,
         cfg_dataset: DictConfig,
         shuffle: bool,
@@ -775,10 +775,10 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                 # Note we are stepping each batch, which might not include optimizer step in the trace
                 # if the schedule cycle doesn't align with gradient accumulation.
                 self._profiler.step()
-                time.sleep(2)
+                #time.sleep(2)
 
             self.epochs_run += 1
-            self.save_checkpoint(epoch=curr_epoch)
+            self.save_checkpoint(epoch=curr_epoch)#here save checkpoint
 
         self._profiler.stop()
 
