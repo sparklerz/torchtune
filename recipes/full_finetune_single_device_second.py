@@ -584,18 +584,16 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             # Create train dataset
             train_dataset = dataset.select(range(train_size))
             
-            def preprocess_function(examples):
-                texts = [f"Title: {title}\nAbstract: {abstract}" 
-                        for title, abstract in zip(examples['title'], examples['abstract'])]
-                return tokenizer(texts, truncation=True, max_length=tokenizer.model_max_length)
+            def tokenize_function(examples):
+                return tokenizer(examples["text"], truncation=True, max_length=tokenizer.model_max_length)
             
-            processed_dataset = train_dataset.map(
-                preprocess_function,
-                batched=True,
-                remove_columns=dataset.column_names
+            tokenized_dataset = train_dataset.map(
+                tokenize_function, 
+                batched=True, 
+                remove_columns=train_dataset.column_names
             )
             
-            return processed_dataset
+            return tokenized_dataset
 
         if isinstance(cfg_dataset, ListConfig):
             datasets = [
