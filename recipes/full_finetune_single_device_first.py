@@ -26,6 +26,9 @@ from torchtune.training import DummyProfiler, PROFILER_KEY
 from torchtune.training.lr_schedulers import get_lr
 
 from tqdm import tqdm
+from datasets import load_dataset
+from torch.utils.data import Subset
+import numpy as np
 
 import hivemind
 
@@ -255,8 +258,8 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             self._optimizer = hivemind.Optimizer(
                 dht=self._dht,              # use a DHT that is connected with other peers            
                 run_id='my_llama_run',      # unique identifier of this collaborative run
-                batch_size_per_step=1,      # each call to opt.step adds this many samples towards the next epoch
-                target_batch_size=10,       # after peers collectively process this many samples, average weights and begin the next epoch
+                batch_size_per_step=cfg.batch_size,      # each call to opt.step adds this many samples towards the next epoch
+                target_batch_size=cfg.batch_size * 10,       # after peers collectively process this many samples, average weights and begin the next epoch
                 optimizer=optimizer_lambda,  # wrap the optimizer defined above
                 params=self._model.parameters(),
                 use_local_updates=True,     # perform optimizer steps with local gradients, average parameters in background
@@ -544,9 +547,29 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
     ) -> Tuple[DistributedSampler, DataLoader]:
         """
         All data related setup happens here. Currently this recipe only supports the
-        DistributedSamplers with Map-style Datasets which fit into memory. Other samplers,
-        iterable datasets and streaming datasets are not supported.
+        DistributedSamplers with Map-style Datasets which fit into memory.
         """
+        def setup_arxiv_dataset(cfg_dataset, tokenizer):
+            print("Inside setup_arxiv_dataset method")
+            dataset = load_dataset(cfg_dataset.path)['train']
+            num_samples = len(dataset)
+            
+            # Create train dataset
+            train_dataset = dataset.select(range(num_samples*(cfg_dataset.train_test_split)))
+            
+            def preprocess_function(examples):
+                texts = [f"Title: {title}\nAbstract: {abstract}" 
+                        for title, abstract in zip(examples['title'], examples['abstract'])]
+                return tokenizer(texts, truncation=True, max_length=tokenizer.model_max_length)
+            
+            processed_dataset = train_dataset.map(
+                preprocess_function,
+                batched=True,
+                remove_columns=dataset.column_names
+            )
+            
+            return processed_dataset
+
         if isinstance(cfg_dataset, ListConfig):
             datasets = [
                 config.instantiate(single_cfg_dataset, self._tokenizer)
@@ -555,8 +578,12 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             ds = ConcatDataset(datasets=datasets)
             packed = False
         else:
-            ds = config.instantiate(cfg_dataset, self._tokenizer)
-            packed = cfg_dataset.get("packed", False)
+            if cfg_dataset.path == "ash001/arxiv-abstract":
+                ds = setup_arxiv_dataset(cfg_dataset, self._tokenizer)
+                packed = cfg_dataset.get("packed", False)
+            else:
+                ds = config.instantiate(cfg_dataset, self._tokenizer)
+                packed = cfg_dataset.get("packed", False)
 
         # Instantiate collate_fn
         if "left_pad_sequence" in collate_fn:

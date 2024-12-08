@@ -22,12 +22,21 @@ tokenizer:
   merges_file: /tmp/Qwen2-0.5B-Instruct/merges.txt
   max_seq_len: null
 
+# # Dataset
+# dataset:
+#   packed: False # Set to true for great speed ups
+#   _component_: torchtune.datasets.alpaca_cleaned_dataset
+# seed: null
+# shuffle: False
+
 # Dataset
 dataset:
   packed: False # Set to true for great speed ups
-  _component_: torchtune.datasets.alpaca_cleaned_dataset
+  _component_: torchtune.datasets.huggingface_dataset
+  path: ash001/arxiv-abstract
+  train_test_split: 0.8  # 20% test set
 seed: null
-shuffle: False
+shuffle: True
 
 # Model Arguments
 model:
