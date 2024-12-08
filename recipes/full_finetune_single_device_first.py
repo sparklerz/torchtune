@@ -559,7 +559,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             train_dataset = dataset.select(range(train_size))
 
             def tokenize_function(examples):
-                tokenized = tokenizer(examples["text"])
+                tokenized = tokenizer({"text": examples["text"]})
                 if len(tokenized["input_ids"]) > 1024:
                     tokenized["input_ids"] = tokenized["input_ids"][:1024]
                 return tokenized
