@@ -579,9 +579,10 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             print("Inside setup_arxiv_dataset method")
             dataset = load_dataset(cfg_dataset.path)['train']
             num_samples = len(dataset)
+            train_size = int(num_samples * cfg_dataset.train_test_split)
             
             # Create train dataset
-            train_dataset = dataset.select(range(num_samples*(cfg_dataset.train_test_split)))
+            train_dataset = dataset.select(range(train_size))
             
             def preprocess_function(examples):
                 texts = [f"Title: {title}\nAbstract: {abstract}" 
