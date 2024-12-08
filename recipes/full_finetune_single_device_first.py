@@ -30,6 +30,8 @@ from datasets import load_dataset
 from torch.utils.data import Subset
 import numpy as np
 
+from torchtune.data._messages import Message
+
 import hivemind
 
 log = utils.get_logger("DEBUG")
@@ -560,7 +562,11 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
 
             def tokenize_function(examples):
                 messages = [
-                    {"role": "user", "content": [{"type": "text", "content": text}]} 
+                    Message(
+                        role="user",  
+                        content=[{"type": "text", "content": text}],
+                        masked=False
+                    )
                     for text in examples["text"]
                 ]
                 tokenized = tokenizer({"messages": messages})
