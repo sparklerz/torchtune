@@ -187,6 +187,18 @@ def padded_collate_sft(
         >>> collated["labels"]
         >>> tensor([[4, 5, 6], [10, -100, -100]])
     """
+    # Validate batch is not empty
+    if not batch:
+        raise ValueError("Batch contains no elements")
+        
+    # Validate each batch item has required keys
+    if not all("tokens" in x and "labels" in x for x in batch):
+        raise ValueError("Each batch item must contain 'tokens' and 'labels'")
+        
+    # Validate no empty sequences
+    if not all(len(x["tokens"]) > 0 and len(x["labels"]) > 0 for x in batch):
+        raise ValueError("Found empty sequence in batch")
+
     input_ids = pad_sequence(
         [torch.tensor(x["tokens"]) for x in batch],
         batch_first=True,
