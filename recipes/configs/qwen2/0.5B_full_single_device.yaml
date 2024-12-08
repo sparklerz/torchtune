@@ -37,6 +37,8 @@ dataset:
   train_test_split: 0.8  # 20% test set
 seed: null
 shuffle: True
+start_index: 0
+end_index: 100000
 
 # Model Arguments
 model:

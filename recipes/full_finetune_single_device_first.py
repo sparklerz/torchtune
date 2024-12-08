@@ -295,6 +295,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             shuffle=cfg.shuffle,
             batch_size=cfg.batch_size,
             collate_fn=collate_name,
+            cfg=cfg
         )
 
         # Finally update the recipe state which can only be correctly set after all of the
@@ -546,19 +547,19 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         shuffle: bool,
         batch_size: int,
         collate_fn: str,
+        cfg: DictConfig
     ) -> Tuple[DistributedSampler, DataLoader]:
         """
         All data related setup happens here. Currently this recipe only supports the
         DistributedSamplers with Map-style Datasets which fit into memory.
         """
-        def setup_arxiv_dataset(cfg_dataset, tokenizer):
+        def setup_arxiv_dataset(cfg_dataset, tokenizer, cfg):
             print("Inside setup_arxiv_dataset method")
             dataset = load_dataset(cfg_dataset.path)['train']
-            num_samples = len(dataset)
-            train_size = int(num_samples * cfg_dataset.train_test_split)
-            
-            # Create train dataset
-            train_dataset = dataset.select(range(train_size))
+            # num_samples = len(dataset)
+            # train_size = int(num_samples * cfg_dataset.train_test_split)
+            # train_dataset = dataset.select(range(train_size))
+            train_dataset = dataset.select(range(cfg.start_index, cfg.end_index))
 
             def tokenize_function(examples):
                 messages = [
@@ -598,7 +599,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             packed = False
         else:
             if cfg_dataset.path == "ash001/arxiv-abstract":
-                ds = setup_arxiv_dataset(cfg_dataset, self._tokenizer)
+                ds = setup_arxiv_dataset(cfg_dataset, self._tokenizer, cfg)
                 packed = cfg_dataset.get("packed", False)
             else:
                 ds = config.instantiate(cfg_dataset, self._tokenizer)
