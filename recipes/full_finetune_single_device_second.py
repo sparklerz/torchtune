@@ -583,10 +583,10 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             
             # Create train dataset
             train_dataset = dataset.select(range(train_size))
-            
+
             def tokenize_function(examples):
-                return tokenizer(examples["text"], truncation=True, max_length=tokenizer.model_max_length)
-            
+                return tokenizer(examples["text"], truncation=True, max_length=1024)
+
             tokenized_dataset = train_dataset.map(
                 tokenize_function, 
                 batched=True, 
