@@ -195,6 +195,12 @@ def padded_collate_sft(
     if not all("tokens" in x and "labels" in x for x in batch):
         raise ValueError("Each batch item must contain 'tokens' and 'labels'")
         
+    # Convert integers to lists if needed
+    batch = [{
+        "tokens": [x["tokens"]] if isinstance(x["tokens"], (int, float)) else x["tokens"],
+        "labels": [x["labels"]] if isinstance(x["labels"], (int, float)) else x["labels"]
+    } for x in batch]
+        
     # Validate no empty sequences
     if not all(len(x["tokens"]) > 0 and len(x["labels"]) > 0 for x in batch):
         raise ValueError("Found empty sequence in batch")
