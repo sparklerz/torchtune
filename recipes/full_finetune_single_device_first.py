@@ -670,11 +670,11 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         
         labels = batch.pop("labels")
 
-        print("line 673 - labels : {labels}")
+        print(f"line 673 - labels : {labels}")
 
         logits = self._model(**batch)
 
-        print("line 677 - logits : {logits}")
+        print(f"line 677 - logits : {logits}")
 
         print("Completed forward pass")
 
@@ -691,7 +691,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         # Compute loss
         loss = self._loss_fn(logits, labels)
         # free logits otherwise it peaks backward memory
-        print("line 694 - loss - {loss}")
+        print(f"line 694 - loss - {loss}")
 
         del logits
 
@@ -724,7 +724,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
 
             pbar = tqdm(total=self._steps_per_epoch)
             for idx, batch in enumerate(self._dataloader):
-                print("line 727 - batch : {batch}")
+                print(f"line 727 - batch : {batch}")
 
                 if (
                     self.max_steps_per_epoch is not None
