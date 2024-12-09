@@ -579,7 +579,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                 
                 return {
                     "tokens": tokenized["tokens"],
-                    "mask": tokenized["mask"]
+                    "labels": tokenized["tokens"].copy()
                 }
 
             tokenized_dataset = train_dataset.map(
