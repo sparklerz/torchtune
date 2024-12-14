@@ -25,7 +25,10 @@ class HuggingFaceDataset(Dataset):
             train_texts = train_texts[start_index:end_index]
 
         # Tokenize
-        encodings = tokenizer(train_texts, truncation=True, padding=True)
+        encodings = tokenizer(train_texts)
+        max_seq_length = 1024  # or your desired max length
+        for key, val in encodings.items():
+            encodings[key] = [v[:max_seq_length] for v in val]
         self.encodings = encodings
 
     def __len__(self):
