@@ -543,20 +543,16 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         collate_fn: str
     ) -> Tuple[DistributedSampler, DataLoader]:
         """
-        All data related setup happens here. Currently this recipe only supports the
-        DistributedSamplers with Map-style Datasets which fit into memory. Other samplers,
-        iterable datasets and streaming datasets are not supported.
+        All data related setup happens here.
+        This now uses ash001/arxiv-abstract and does a train/test split.
+        The training dataloader will only use the train split.
         """
-        if isinstance(cfg_dataset, ListConfig):
-            datasets = [
-                config.instantiate(single_cfg_dataset, self._tokenizer)
-                for single_cfg_dataset in cfg_dataset
-            ]
-            ds = ConcatDataset(datasets=datasets)
-            packed = False
-        else:
-            ds = config.instantiate(cfg_dataset, self._tokenizer)
-            packed = cfg_dataset.get("packed", False)
+
+        # If cfg_dataset is a single dataset config:
+        ds = config.instantiate(cfg_dataset, self._tokenizer)
+        # The dataset should now be split internally by `huggingface_dataset`
+        # with `train_test_split=0.8`.
+        # `ds` should return only the training subset by default or we need to specify it.
 
         # Instantiate collate_fn
         if "left_pad_sequence" in collate_fn:
@@ -576,18 +572,14 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             sampler=sampler,
             # dropping last avoids shape issues with compile + flex attention
             drop_last=True,
-            collate_fn=(
-                partial(
-                    collate_fn,
-                    padding_idx=self._tokenizer.pad_id,
-                    ignore_idx=self._loss_fn.ignore_index,
-                )
-                if not packed
-                else padded_collate_packed
+            collate_fn=partial(
+                collate_fn,
+                padding_idx=self._tokenizer.pad_id,
+                ignore_idx=self._loss_fn.ignore_index,
             ),
         )
 
-        print("Dataset and Sampler are initialized.")
+        print("Dataset (train split) and Sampler are initialized.")
 
         return sampler, dataloader
 
