@@ -34,11 +34,11 @@ dataset:
   _component_: torchtune.datasets.huggingface_dataset
   path: ash001/arxiv-abstract
   train_test_split: 0.8   # 80% training, 20% test
-  shuffle: True           # enable shuffling
-  start_index: 0
-  end_index: 100000
 packed: False
 seed: 42                # seed for reproducibility
+shuffle: True           # enable shuffling
+start_index: 0
+end_index: 100000
 
 # # Dataset - 3.5 sonnet
 # dataset:
