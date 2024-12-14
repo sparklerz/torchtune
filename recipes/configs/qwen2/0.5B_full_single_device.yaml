@@ -67,7 +67,7 @@ checkpointer:
 resume_from_checkpoint: False
 
 # Fine-tuning arguments
-batch_size: 2
+batch_size: 8
 epochs: 1
 optimizer:
   _component_: torch.optim.AdamW
@@ -79,7 +79,7 @@ loss:
 optimizer_in_bwd: False
 
 max_steps_per_epoch: null
-gradient_accumulation_steps: 8
+gradient_accumulation_steps: 4
 compile: False
 
 # Training environment
