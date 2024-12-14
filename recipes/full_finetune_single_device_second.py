@@ -26,11 +26,6 @@ from torchtune.training import DummyProfiler, PROFILER_KEY
 from torchtune.training.lr_schedulers import get_lr
 
 from tqdm import tqdm
-from datasets import load_dataset
-from torch.utils.data import Subset
-import numpy as np
-
-from torchtune.data._messages import Message
 
 import hivemind
 
@@ -320,8 +315,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             cfg_dataset=cfg.dataset,
             shuffle=cfg.shuffle,
             batch_size=cfg.batch_size,
-            collate_fn=collate_name,
-            cfg=cfg
+            collate_fn=collate_name
         )
 
         # Finally update the recipe state which can only be correctly set after all of the
@@ -572,64 +566,14 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         cfg_dataset: DictConfig,
         shuffle: bool,
         batch_size: int,
-        collate_fn: str,
-        cfg: DictConfig
+        collate_fn: str
     ) -> Tuple[DistributedSampler, DataLoader]:
         """
-        All data related setup happens here. Currently this recipe only supports the
-        DistributedSamplers with Map-style Datasets which fit into memory.
+        All data related setup happens here.
         """
-        def setup_arxiv_dataset(cfg_dataset, tokenizer, cfg):
-            print("Inside setup_arxiv_dataset method")
-            dataset = load_dataset(cfg_dataset.path)['train']
-            # num_samples = len(dataset)
-            # train_size = int(num_samples * cfg_dataset.train_test_split)
-            # train_dataset = dataset.select(range(train_size))
-            train_dataset = dataset.select(range(cfg.start_index, cfg.end_index))
 
-            def tokenize_function(examples):
-                messages = [
-                    Message(
-                        role="user",  
-                        content=[{"type": "text", "content": text}],
-                        masked=False
-                    )
-                    for text in examples["text"]
-                ]
-                tokenized = tokenizer({"messages": messages})
-                
-                # Handle truncation after tokenization
-                if len(tokenized["tokens"]) > 1024:
-                    tokenized["tokens"] = tokenized["tokens"][:1024]
-                    tokenized["mask"] = tokenized["mask"][:1024]
-                
-                return {
-                    "tokens": tokenized["tokens"],
-                    "labels": tokenized["tokens"].copy()
-                }
-
-            tokenized_dataset = train_dataset.map(
-                tokenize_function, 
-                batched=True, 
-                remove_columns=train_dataset.column_names
-            )
-            
-            return tokenized_dataset
-
-        if isinstance(cfg_dataset, ListConfig):
-            datasets = [
-                config.instantiate(single_cfg_dataset, self._tokenizer)
-                for single_cfg_dataset in cfg_dataset
-            ]
-            ds = ConcatDataset(datasets=datasets)
-            packed = False
-        else:
-            if cfg_dataset.path == "ash001/arxiv-abstract":
-                ds = setup_arxiv_dataset(cfg_dataset, self._tokenizer, cfg)
-                packed = cfg_dataset.get("packed", False)
-            else:
-                ds = config.instantiate(cfg_dataset, self._tokenizer)
-                packed = cfg_dataset.get("packed", False)
+        # If cfg_dataset is a single dataset config:
+        ds = config.instantiate(cfg_dataset, self._tokenizer)
 
         # Instantiate collate_fn
         if "left_pad_sequence" in collate_fn:
@@ -649,18 +593,14 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             sampler=sampler,
             # dropping last avoids shape issues with compile + flex attention
             drop_last=True,
-            collate_fn=(
-                partial(
-                    collate_fn,
-                    padding_idx=self._tokenizer.pad_id,
-                    ignore_idx=self._loss_fn.ignore_index,
-                )
-                if not packed
-                else padded_collate_packed
+            collate_fn=partial(
+                collate_fn,
+                padding_idx=self._tokenizer.pad_id,
+                ignore_idx=self._loss_fn.ignore_index,
             ),
         )
 
-        print("Dataset and Sampler are initialized.")
+        print("Dataset (train split) and Sampler are initialized.")
 
         return sampler, dataloader
 
@@ -696,7 +636,11 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         
         labels = batch.pop("labels")
 
+        # print(f"line 673 - labels : {labels}")
+
         logits = self._model(**batch)
+
+        # print(f"line 677 - logits : {logits}")
 
         print("Completed forward pass")
 
@@ -713,6 +657,8 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         # Compute loss
         loss = self._loss_fn(logits, labels)
         # free logits otherwise it peaks backward memory
+        # print(f"line 694 - loss - {loss}")
+
         del logits
 
         return loss
@@ -744,6 +690,8 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
 
             pbar = tqdm(total=self._steps_per_epoch)
             for idx, batch in enumerate(self._dataloader):
+                # print(f"line 727 - batch : {batch}")
+
                 if (
                     self.max_steps_per_epoch is not None
                     and (idx // self._gradient_accumulation_steps)
