@@ -12,8 +12,9 @@ class HuggingFaceDataset(Dataset):
         # If 'train_test_split' is needed, manually split the data.
         data = raw_ds['train']
         
+        print("Columns available: ", data.column_names)
         # Convert to list of texts (adjust the field name 'abstract' if different):
-        texts = data['abstract']  # If the dataset uses a different key, use that.
+        texts = data['text']
         
         # If you need splitting:
         split_index = int(train_test_split * len(texts))
