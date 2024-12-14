@@ -106,7 +106,7 @@ _ALL_RECIPES = [
     ),
     Recipe(
         name="hivemind_full_finetune_single_device_first_peer",
-        file_path="full_finetune_single_device_first.py",
+        file_path="full_finetune_single_device_first_arxiv.py",
         configs=[
             Config(
                 name="qwen2/0.5B_full_single_device",

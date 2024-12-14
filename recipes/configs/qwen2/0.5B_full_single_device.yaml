@@ -29,7 +29,7 @@ dataset:
 seed: null
 shuffle: False
 
-# # Dataset
+# # Dataset - 3.5 sonnet
 # dataset:
 #   packed: False # Set to true for great speed ups
 #   _component_: torchtune.datasets.huggingface_dataset
