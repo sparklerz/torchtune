@@ -36,14 +36,14 @@ class HuggingFaceDataset(Dataset):
             encoded_inputs[i] = encoded_inputs[i][:max_seq_length]
 
         # Store in encodings dictionary
-        encodings = {"input_ids": encoded_inputs}
+        encodings = {"tokens": encoded_inputs}
         self.encodings = encodings
 
     def __len__(self):
-        return len(self.encodings["input_ids"])
+        return len(self.encodings["tokens"])
 
     def __getitem__(self, idx):
         item = {key: val[idx] for key, val in self.encodings.items()}
-        # Use input_ids as both inputs and labels for causal LM
-        item["labels"] = item["input_ids"]
+        # Use tokens as both inputs and labels for causal LM
+        item["labels"] = item["tokens"]
         return item
