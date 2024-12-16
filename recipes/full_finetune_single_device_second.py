@@ -25,6 +25,9 @@ from torchtune.recipe_interfaces import FTRecipeInterface
 from torchtune.training import DummyProfiler, PROFILER_KEY
 from torchtune.training.lr_schedulers import get_lr
 
+import random
+import sys
+
 from tqdm import tqdm
 
 import hivemind
@@ -263,7 +266,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                 dht=self._dht,              # use a DHT that is connected with other peers            
                 run_id='my_llama_run',      # unique identifier of this collaborative run
                 batch_size_per_step=cfg.batch_size,      # each call to opt.step adds this many samples towards the next epoch
-                target_batch_size=cfg.batch_size * 100,       # after peers collectively process this many samples, average weights and begin the next epoch
+                target_batch_size=cfg.batch_size * 200,       # after peers collectively process this many samples, average weights and begin the next epoch
                 optimizer=optimizer_lambda,  # wrap the optimizer defined above
                 params=self._model.parameters(),
                 use_local_updates=True,     # perform optimizer steps with local gradients, average parameters in background
@@ -585,7 +588,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             num_replicas=1,
             rank=0,
             shuffle=shuffle,
-            seed=0,
+            seed=self.seed + random.randint(-sys.maxsize, sys.maxsize),
         )
         dataloader = DataLoader(
             dataset=ds,
@@ -687,6 +690,10 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             # Update the sampler to ensure data is correctly shuffled across epochs
             # in case shuffle is True
             self._sampler.set_epoch(curr_epoch)
+
+            sample_iter = iter(self._sampler)
+            first_few_indices = [next(sample_iter) for _ in range(min(10, len(self._sampler)))]
+            log.debug(f"Sampler indices for epoch {curr_epoch} (first 10): {first_few_indices}")
 
             pbar = tqdm(total=self._steps_per_epoch)
             for idx, batch in enumerate(self._dataloader):
