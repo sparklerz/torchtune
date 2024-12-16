@@ -25,8 +25,7 @@ from torchtune.recipe_interfaces import FTRecipeInterface
 from torchtune.training import DummyProfiler, PROFILER_KEY
 from torchtune.training.lr_schedulers import get_lr
 
-import random
-import sys
+import time
 
 from tqdm import tqdm
 
@@ -142,7 +141,8 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
 
         # These are public properties which are updated by the checkpoint loader
         # when ``resume_from_checkpoint`` is `True` or validated in tests
-        self.seed = training.set_seed(seed=cfg.seed)
+        #self.seed = training.set_seed(seed=cfg.seed)
+        self.seed = int(time.time())
         self.epochs_run = 0
         self.total_epochs = cfg.epochs
         self.max_steps_per_epoch = cfg.max_steps_per_epoch
@@ -562,7 +562,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             num_replicas=1,
             rank=0,
             shuffle=shuffle,
-            seed=self.seed + random.randint(-sys.maxsize, sys.maxsize),
+            seed=self.seed,
         )
         dataloader = DataLoader(
             dataset=ds,
