@@ -693,7 +693,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
 
             sample_iter = iter(self._sampler)
             first_few_indices = [next(sample_iter) for _ in range(min(10, len(self._sampler)))]
-            log.debug(f"Sampler indices for epoch {curr_epoch} (first 10): {first_few_indices}")
+            print(f"Sampler indices for epoch {curr_epoch} (first 10): {first_few_indices}")
 
             pbar = tqdm(total=self._steps_per_epoch)
             for idx, batch in enumerate(self._dataloader):
