@@ -68,7 +68,8 @@ resume_from_checkpoint: False
 
 # Fine-tuning arguments
 batch_size: 8
-epochs: 1
+number_of_syncs_per_epoch: 10
+epochs: 2
 optimizer:
   _component_: torch.optim.AdamW
   fused: True
