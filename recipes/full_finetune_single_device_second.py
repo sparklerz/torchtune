@@ -127,7 +127,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             self._log_peak_memory_stats = False
 
         # Training cfg
-        self._resume_from_checkpoint = cfg.resume_from_checkpoint
+        # self._resume_from_checkpoint = cfg.resume_from_checkpoint
         self._gradient_accumulation_steps = cfg.gradient_accumulation_steps
         self._optimizer_in_bwd = cfg.optimizer_in_bwd
 
@@ -154,60 +154,60 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         self._initial_peers = cfg.get("initial_peers", None)
         print(f"self._initial_peers - {self._initial_peers}")
 
-    def load_checkpoint(self, cfg_checkpointer: DictConfig) -> Dict[str, Any]:
-        """
-        Extract the checkpoint state from file and validate. If resume_from_checkpoint
-        is True, this also includes the recipe state.
-        """
-        self._checkpointer = config.instantiate(
-            cfg_checkpointer,
-            resume_from_checkpoint=self._resume_from_checkpoint,
-        )
-        checkpoint_dict = self._checkpointer.load_checkpoint()
+    # def load_checkpoint(self, cfg_checkpointer: DictConfig) -> Dict[str, Any]:
+    #     """
+    #     Extract the checkpoint state from file and validate. If resume_from_checkpoint
+    #     is True, this also includes the recipe state.
+    #     """
+    #     self._checkpointer = config.instantiate(
+    #         cfg_checkpointer,
+    #         resume_from_checkpoint=self._resume_from_checkpoint,
+    #     )
+    #     checkpoint_dict = self._checkpointer.load_checkpoint()
 
-        if self._resume_from_checkpoint:
-            self._update_recipe_state(checkpoint_dict)
-        return checkpoint_dict
+    #     if self._resume_from_checkpoint:
+    #         self._update_recipe_state(checkpoint_dict)
+    #     return checkpoint_dict
 
-    def _update_recipe_state(self, ckpt_dict: Dict[str, Any]) -> None:
-        """
-        Updates the recipe state from checkpoint.
-        """
-        try:
-            self.epochs_run = ckpt_dict[training.EPOCHS_KEY]
+    # def _update_recipe_state(self, ckpt_dict: Dict[str, Any]) -> None:
+    #     """
+    #     Updates the recipe state from checkpoint.
+    #     """
+    #     try:
+    #         self.epochs_run = ckpt_dict[training.EPOCHS_KEY]
 
-            # on mismatch, warn the user and prevent the override
-            if self.seed != ckpt_dict[training.SEED_KEY]:
-                warn(
-                    message=(
-                        "Config value for seed does not match the checkpoint value, "
-                        f"using the checkpoint value: {ckpt_dict[training.SEED_KEY]}"
-                    )
-                )
-                self.seed = ckpt_dict[training.SEED_KEY]
-            if self.max_steps_per_epoch != ckpt_dict[training.MAX_STEPS_KEY]:
-                warn(
-                    message=(
-                        "Config value for max_steps_per_epoch does not match the checkpoint value, "
-                        f"using the checkpoint value: {ckpt_dict[training.MAX_STEPS_KEY]}"
-                    )
-                )
-                self.max_steps_per_epoch = ckpt_dict[training.MAX_STEPS_KEY]
+    #         # on mismatch, warn the user and prevent the override
+    #         if self.seed != ckpt_dict[training.SEED_KEY]:
+    #             warn(
+    #                 message=(
+    #                     "Config value for seed does not match the checkpoint value, "
+    #                     f"using the checkpoint value: {ckpt_dict[training.SEED_KEY]}"
+    #                 )
+    #             )
+    #             self.seed = ckpt_dict[training.SEED_KEY]
+    #         if self.max_steps_per_epoch != ckpt_dict[training.MAX_STEPS_KEY]:
+    #             warn(
+    #                 message=(
+    #                     "Config value for max_steps_per_epoch does not match the checkpoint value, "
+    #                     f"using the checkpoint value: {ckpt_dict[training.MAX_STEPS_KEY]}"
+    #                 )
+    #             )
+    #             self.max_steps_per_epoch = ckpt_dict[training.MAX_STEPS_KEY]
 
-            # on mismatch, warn the user but allow the override
-            if self.total_epochs != ckpt_dict[training.TOTAL_EPOCHS_KEY]:
-                warn(
-                    message=(
-                        "Config value for total_epochs does not match the checkpoint value, "
-                        f"using the config value: {self.total_epochs}"
-                    )
-                )
+    #         # on mismatch, warn the user but allow the override
+    #         if self.total_epochs != ckpt_dict[training.TOTAL_EPOCHS_KEY]:
+    #             warn(
+    #                 message=(
+    #                     "Config value for total_epochs does not match the checkpoint value, "
+    #                     f"using the config value: {self.total_epochs}"
+    #                 )
+    #             )
 
-        except KeyError as e:
-            raise KeyError(
-                "Checkpoint does not contain the required keys needed for updating recipe state. "
-                "Are you sure you passed in the right recipe checkpoint?"
-            ) from e
+    #     except KeyError as e:
+    #         raise KeyError(
+    #             "Checkpoint does not contain the required keys needed for updating recipe state. "
+    #             "Are you sure you passed in the right recipe checkpoint?"
+    #         ) from e
 
     def setup(self, cfg: DictConfig) -> None:
         """
@@ -219,7 +219,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         # log config with parameter override
         self._metric_logger.log_config(cfg)
 
-        ckpt_dict = self.load_checkpoint(cfg.checkpointer)#here load checkpoint
+        # ckpt_dict = self.load_checkpoint(cfg.checkpointer)#here load checkpoint
 
         # ``_setup_model`` handles initialization and loading the state dict. This method
         # should be called before ``_setup_optimizer`` since transforming the optimizer
@@ -229,7 +229,6 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             cfg_model=cfg.model,
             enable_activation_checkpointing=cfg.enable_activation_checkpointing,
             compile_model=self._compile,
-            model_state_dict=ckpt_dict[training.MODEL_KEY],
         )
         self._tokenizer = config.instantiate(cfg.tokenizer)
         print("Tokenizer is initialized from file.")
@@ -240,9 +239,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         optimizer_lambda = lambda params: self._setup_optimizer(
             cfg_optimizer=cfg.optimizer,
             optimizer_in_bwd=cfg.optimizer_in_bwd,
-            opt_state_dict=(
-                ckpt_dict[training.OPT_KEY] if self._resume_from_checkpoint else None
-            ),
+            opt_state_dict=None,  # no local checkpoint states
         )(params)
 
         print(f"self._host_maddrs - {self._host_maddrs}")
@@ -430,7 +427,6 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         cfg_model: DictConfig,
         enable_activation_checkpointing: bool,
         compile_model: bool,
-        model_state_dict: Dict[str, Any],
     ) -> nn.Module:
         """
         Set up the model including enabling activation checkpointing.
@@ -446,7 +442,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                 model, auto_wrap_policy={modules.TransformerSelfAttentionLayer}
             )
 
-        model.load_state_dict(model_state_dict)
+        # model.load_state_dict(model_state_dict)
 
         # Validate model was loaded in with the expected dtype.
         training.validate_expected_param_dtype(
@@ -607,31 +603,31 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
 
         return sampler, dataloader
 
-    def save_checkpoint(self, epoch: int) -> None:
-        """
-        Save state dict to file. The recipe save_checkpoint method is responsible for
-        correctly creating the checkpoint dict and passing to the checkpointer.
-        """
-        ckpt_dict = {training.MODEL_KEY: self._model.state_dict()}
-        # if training is in-progress, checkpoint the optimizer state as well
-        if epoch + 1 < self.total_epochs:
-            ckpt_dict.update(
-                {
-                    training.SEED_KEY: self.seed,
-                    training.EPOCHS_KEY: self.epochs_run,
-                    training.TOTAL_EPOCHS_KEY: self.total_epochs,
-                    training.MAX_STEPS_KEY: self.max_steps_per_epoch,
-                }
-            )
-            if not self._optimizer_in_bwd:
-                ckpt_dict[training.OPT_KEY] = self._optimizer.state_dict()
-            else:
-                ckpt_dict[training.OPT_KEY] = self._optim_ckpt_wrapper.state_dict()
-        self._checkpointer.save_checkpoint(
-            ckpt_dict,
-            epoch=epoch,
-            intermediate_checkpoint=(epoch + 1 < self.total_epochs),
-        )
+    # def save_checkpoint(self, epoch: int) -> None:
+    #     """
+    #     Save state dict to file. The recipe save_checkpoint method is responsible for
+    #     correctly creating the checkpoint dict and passing to the checkpointer.
+    #     """
+    #     ckpt_dict = {training.MODEL_KEY: self._model.state_dict()}
+    #     # if training is in-progress, checkpoint the optimizer state as well
+    #     if epoch + 1 < self.total_epochs:
+    #         ckpt_dict.update(
+    #             {
+    #                 training.SEED_KEY: self.seed,
+    #                 training.EPOCHS_KEY: self.epochs_run,
+    #                 training.TOTAL_EPOCHS_KEY: self.total_epochs,
+    #                 training.MAX_STEPS_KEY: self.max_steps_per_epoch,
+    #             }
+    #         )
+    #         if not self._optimizer_in_bwd:
+    #             ckpt_dict[training.OPT_KEY] = self._optimizer.state_dict()
+    #         else:
+    #             ckpt_dict[training.OPT_KEY] = self._optim_ckpt_wrapper.state_dict()
+    #     self._checkpointer.save_checkpoint(
+    #         ckpt_dict,
+    #         epoch=epoch,
+    #         intermediate_checkpoint=(epoch + 1 < self.total_epochs),
+    #     )
 
     def _loss_step(self, batch: Dict[str, torch.Tensor]) -> torch.Tensor:
         # Shape [b, s], needed for the loss not the model
@@ -806,7 +802,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                 #time.sleep(2)
 
             self.epochs_run += 1
-            self.save_checkpoint(epoch=curr_epoch)#here save checkpoint
+            # self.save_checkpoint(epoch=curr_epoch)#here save checkpoint
 
         self._profiler.stop()
 
