@@ -659,6 +659,10 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         num_tokens = 0
 
         self._profiler.start()
+        
+        last_hivemind_epoch = self._optimizer.local_epoch  # track the global (swarm) epoch from hivemind
+        print(f"Value of last_hivemind_epoch : {last_hivemind_epoch}")
+
         # self.epochs_run should be non-zero when we're resuming from a checkpoint
         for curr_epoch in range(self.epochs_run, self.total_epochs):
             # Update the sampler to ensure data is correctly shuffled across epochs
@@ -762,6 +766,13 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                     num_tokens = 0
                     t0 = time.perf_counter()
 
+                    new_hivemind_epoch = self._optimizer.local_epoch
+                    print(f"Value of new_hivemind_epoch : {new_hivemind_epoch}")
+                    if new_hivemind_epoch > last_hivemind_epoch:
+                        print(f"Hivemind Global epoch advanced from {last_hivemind_epoch} to {new_hivemind_epoch}!")
+                        self.save_checkpoint(epoch=new_hivemind_epoch)
+                        last_hivemind_epoch = new_hivemind_epoch
+
                 # Stop tracking CUDA memory now that active steps are complete
                 if (
                     curr_epoch == 0
@@ -779,8 +790,8 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                 self._profiler.step()
                 #time.sleep(2)
 
-            self.epochs_run += 1
-            self.save_checkpoint(epoch=curr_epoch)#here save checkpoint
+            self.epochs_run += 1#local count
+            # self.save_checkpoint(epoch=curr_epoch)#here save checkpoint
 
         self._profiler.stop()
 
