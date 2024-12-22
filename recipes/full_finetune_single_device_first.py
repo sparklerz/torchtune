@@ -234,7 +234,6 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                 repo_type="model",
             )
             target_dir = Path(downloaded_ckpt).parent
-            shutil.copy2(downloaded_cfg, target_dir / "config.json")
             cfg.checkpointer.checkpoint_dir = str(target_dir)
 
         ckpt_dict = self.load_checkpoint(cfg.checkpointer)#here load checkpoint
