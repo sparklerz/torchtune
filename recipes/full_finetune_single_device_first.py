@@ -25,6 +25,9 @@ from torchtune.recipe_interfaces import FTRecipeInterface
 from torchtune.training import DummyProfiler, PROFILER_KEY
 from torchtune.training.lr_schedulers import get_lr
 
+from huggingface_hub import hf_hub_download
+from pathlib import Path
+
 import time
 
 from tqdm import tqdm
@@ -215,6 +218,14 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
 
         # log config with parameter override
         self._metric_logger.log_config(cfg)
+
+        if self._resume_from_checkpoint:
+            downloaded_path = hf_hub_download(
+                repo_id=cfg.repo_id,
+                filename=cfg.checkpointer.checkpoint_files,
+                repo_type="model",
+            )
+            cfg.checkpointer.checkpoint_dir = str(Path(downloaded_path).parent)
 
         ckpt_dict = self.load_checkpoint(cfg.checkpointer)#here load checkpoint
 

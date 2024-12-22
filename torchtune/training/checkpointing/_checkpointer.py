@@ -919,9 +919,9 @@ class FullModelHFCheckpointer(_CheckpointerInterface):
 
         # build custom file name
         if hf_iter_index is not None:
-            file_basename = f"qwen2_0.5B_{cfg.dataset.start_index}-{cfg.dataset.end_index}-epoch-1-{hf_iter_index}-{cpt_idx}.pt"
+            file_basename = f"qwen2_0.5B_{cfg.dataset.start_index}-{cfg.dataset.end_index}-epoch-1-sync-index-{hf_iter_index}-part-{cpt_idx}.pt"
         else:
-            file_basename = f"qwen2_0.5B_{cfg.dataset.start_index}-{cfg.dataset.end_index}-epoch-1-{epoch}-{cpt_idx}.pt"
+            file_basename = f"qwen2_0.5B_{cfg.dataset.start_index}-{cfg.dataset.end_index}-epoch-1-sync-index-{epoch}-part-{cpt_idx}.pt"
 
         # Use huggingface_hub to upload
         api = HfApi()
