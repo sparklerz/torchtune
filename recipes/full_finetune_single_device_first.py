@@ -27,6 +27,7 @@ from torchtune.training.lr_schedulers import get_lr
 
 from huggingface_hub import hf_hub_download
 from pathlib import Path
+import shutil
 
 import time
 
@@ -220,12 +221,21 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         self._metric_logger.log_config(cfg)
 
         if self._resume_from_checkpoint:
-            downloaded_path = hf_hub_download(
+            # download checkpoint .pt
+            downloaded_ckpt = hf_hub_download(
                 repo_id=cfg.repo_id,
                 filename=cfg.checkpointer.checkpoint_files[0],
                 repo_type="model",
             )
-            cfg.checkpointer.checkpoint_dir = str(Path(downloaded_path).parent)
+            # download config.json
+            downloaded_cfg = hf_hub_download(
+                repo_id=cfg.repo_id,
+                filename="config.json",
+                repo_type="model",
+            )
+            target_dir = Path(downloaded_ckpt).parent
+            shutil.copy2(downloaded_cfg, target_dir / "config.json")
+            cfg.checkpointer.checkpoint_dir = str(target_dir)
 
         ckpt_dict = self.load_checkpoint(cfg.checkpointer)#here load checkpoint
 
