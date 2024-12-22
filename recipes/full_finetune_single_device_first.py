@@ -257,9 +257,10 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         optimizer_lambda = lambda params: self._setup_optimizer(
             cfg_optimizer=cfg.optimizer,
             optimizer_in_bwd=cfg.optimizer_in_bwd,
-            opt_state_dict=(
-                ckpt_dict[training.OPT_KEY] if self._resume_from_checkpoint else None
-            ),
+            opt_state_dict=None,
+            # opt_state_dict=(
+            #     ckpt_dict[training.OPT_KEY] if self._resume_from_checkpoint else None
+            # ),
         )(params)
 
         print(f"self._host_maddrs - {self._host_maddrs}")
