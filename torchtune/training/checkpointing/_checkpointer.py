@@ -28,6 +28,10 @@ from torchtune.training.checkpointing._utils import (
 )
 from torchtune.utils._logging import get_logger, log_rank_zero
 
+from huggingface_hub import HfApi, HfFolder
+
+from omegaconf import DictConfig
+
 logger = get_logger("DEBUG")
 
 
@@ -701,6 +705,237 @@ class FullModelHFCheckpointer(_CheckpointerInterface):
                     "The full model checkpoint, including all weights and configurations, has been saved successfully."
                     "You can now use this checkpoint for further training or inference."
                 )
+
+    def save_checkpoint_to_hub(
+        self,
+        state_dict: Dict[str, Any],
+        epoch: int,
+        cfg: DictConfig,
+        intermediate_checkpoint: bool = False,
+        adapter_only: bool = False,
+    ) -> None:
+        """
+        Save HF checkpoint to file. If ``intermediate_checkpoint`` is True, an additional
+        checkpoint file ``recipe_state.pt`` is created in ``_output_dir`` which contains the recipe
+        state.
+
+        The state_dict is first converted back to the HF format and then partitioned based on the
+        ``_weight_map`` into separate checkpoint files.
+
+        Args:
+            state_dict (Dict[str, Any]): Checkpoint state dict to be written out to file
+            epoch (int): Epoch number. Used to create the checkpoint file name
+            intermediate_checkpoint (bool): If True, an additional checkpoint files for recipe state
+                and (if applicable) adapter weights are created. Default is False
+            adapter_only (bool): If True, only save the adapter weights. Default is False
+
+        Raises:
+            ValueError: if ``adapter_only`` is True and adapter checkpoint not found in state_dict.
+        """
+        self._output_dir.mkdir(exist_ok=True)
+
+        hf_iter_index = state_dict.pop("hf_iter_index", None)
+
+        # convert the state_dict back to hf format; do this inplace
+        if not adapter_only:
+            if self._model_type == ModelType.PHI3_MINI:
+                state_dict[training.MODEL_KEY] = phi3_tune_to_hf(
+                    state_dict[training.MODEL_KEY]
+                )
+            elif self._model_type == ModelType.REWARD:
+                state_dict[training.MODEL_KEY] = reward_tune_to_hf(
+                    state_dict[training.MODEL_KEY],
+                    num_heads=self._config["num_attention_heads"],
+                    num_kv_heads=self._config["num_key_value_heads"],
+                    dim=self._config["hidden_size"],
+                )
+            elif self._model_type == ModelType.QWEN2:
+                state_dict[training.MODEL_KEY] = qwen2_tune_to_hf(
+                    state_dict[training.MODEL_KEY],
+                    num_heads=self._config["num_attention_heads"],
+                    num_kv_heads=self._config["num_key_value_heads"],
+                    dim=self._config["hidden_size"],
+                    tie_word_embeddings=self._config["tie_word_embeddings"],
+                )
+            elif self._model_type == ModelType.LLAMA3_VISION:
+                from torchtune.models.llama3_2_vision._convert_weights import (
+                    llama3_vision_tune_to_hf,
+                )
+
+                text_config = self._config.get("text_config", {})
+                vision_config = self._config.get("vision_config", {})
+                state_dict[training.MODEL_KEY] = llama3_vision_tune_to_hf(
+                    state_dict[training.MODEL_KEY],
+                    num_heads=text_config["num_attention_heads"],
+                    num_kv_heads=text_config["num_key_value_heads"],
+                    dim=text_config["hidden_size"],
+                    head_dim=text_config.get("head_dim", None),
+                    vocab_size=text_config["vocab_size"],
+                    cross_attention_layers=text_config.get(
+                        "cross_attention_layers", None
+                    ),
+                    encoder_dim=vision_config["hidden_size"],
+                    tile_size=vision_config["image_size"],
+                    num_tiles=vision_config["max_num_tiles"],
+                    supported_aspect_ratios=vision_config.get(
+                        "supported_aspect_ratios", None
+                    ),
+                )
+            else:
+                state_dict[training.MODEL_KEY] = convert_weights.tune_to_hf(
+                    state_dict[training.MODEL_KEY],
+                    num_heads=self._config["num_attention_heads"],
+                    num_kv_heads=self._config["num_key_value_heads"],
+                    dim=self._config["hidden_size"],
+                    head_dim=self._config.get("head_dim", None),
+                )
+
+            # split the state_dict into separate dicts, one for each output checkpoint file
+            split_state_dicts: Dict[str, Dict[str, torch.Tensor]] = {}
+            for key, weight in state_dict[training.MODEL_KEY].items():
+                cpt_idx = self._weight_map[key]
+                if cpt_idx not in split_state_dicts:
+                    split_state_dicts[cpt_idx] = {}
+                split_state_dicts[cpt_idx].update({key: weight})
+
+            # write the partitioned state dicts to the right checkpoint file
+            for cpt_idx, model_state_dict in split_state_dicts.items():
+                if not self._safe_serialization:
+                    output_path = Path.joinpath(
+                        self._output_dir, f"hf_model_{cpt_idx}_{epoch}"
+                    ).with_suffix(".pt")
+                    torch.save(model_state_dict, output_path)
+                else:
+                    output_path = Path.joinpath(
+                        self._output_dir,
+                        f"model-0{cpt_idx}-of-0{list(split_state_dicts.keys())[-1]}_{epoch}",
+                    ).with_suffix(".safetensors")
+                    save_file(model_state_dict, output_path, metadata={"format": "pt"})
+                logger.info(
+                    "Model checkpoint of size "
+                    f"{os.path.getsize(output_path) / 1000**3:.2f} GB "
+                    f"saved to {output_path}"
+                )
+
+                self._upload_to_hf(output_path, epoch, hf_iter_index, cpt_idx, cfg=cfg)
+
+        if training.ADAPTER_KEY in state_dict:
+            # Save torchtune format adapter weights even if we save PEFT format
+            # This way we can resume no matter what (and memory footprint of adapter weights is small)
+            output_path = Path.joinpath(
+                self._output_dir, f"adapter_{epoch}"
+            ).with_suffix(".pt")
+            torch.save(state_dict[training.ADAPTER_KEY], output_path)
+            logger.info(
+                "Adapter checkpoint of size "
+                f"{os.path.getsize(output_path) / 1000**3:.2f} GB "
+                f"saved to {output_path}"
+            )
+
+            if self._model_type == ModelType.PHI3_MINI:
+                logger.warning(
+                    "Saving Phi-3 Mini adapter weights to PEFT format is not supported, saving to torchtune format instead"
+                )
+            else:
+                state_dict[
+                    training.ADAPTER_KEY
+                ] = convert_weights.tune_to_peft_adapter_weights(
+                    state_dict[training.ADAPTER_KEY],
+                    num_heads=self._config["num_attention_heads"],
+                    num_kv_heads=self._config["num_key_value_heads"],
+                    dim=self._config["hidden_size"],
+                    head_dim=self._config.get("head_dim", None),
+                )
+                peft_output_path = Path.joinpath(
+                    self._output_dir, "adapter_model"
+                ).with_suffix(".bin")
+                torch.save(state_dict[training.ADAPTER_KEY], peft_output_path)
+                logger.info(
+                    "Adapter checkpoint of size "
+                    f"{os.path.getsize(output_path) / 1000**3:.2f} GB "
+                    f"saved to {peft_output_path}"
+                )
+        elif adapter_only:
+            raise ValueError(
+                "Adapter checkpoint not found in state_dict. Please ensure that the state_dict contains adapter weights."
+            )
+
+        if training.ADAPTER_CONFIG in state_dict:
+            if self._model_type == ModelType.PHI3_MINI:
+                logger.warning(
+                    "PEFT integration for Phi-3 Mini is not supported, skipping adapter config save"
+                )
+            else:
+                state_dict[
+                    training.ADAPTER_CONFIG
+                ] = convert_weights.tune_to_peft_adapter_config(
+                    state_dict[training.ADAPTER_CONFIG]
+                )
+                output_path = Path.joinpath(self._output_dir, "adapter_config.json")
+                with open(output_path, "w") as f:
+                    json.dump(state_dict[training.ADAPTER_CONFIG], f)
+                logger.info(
+                    "Adapter checkpoint of size "
+                    f"{os.path.getsize(output_path) / 1000**3:.2f} GB "
+                    f"saved to {output_path}"
+                )
+
+        # If the recipe state needs to be output, first remove the model state dict
+        # and if it exists, remove the adapter state dict as well
+        if intermediate_checkpoint:
+            _ = state_dict.pop(training.MODEL_KEY, None)
+            _ = state_dict.pop(training.ADAPTER_KEY, None)
+            _ = state_dict.pop(training.ADAPTER_CONFIG, None)
+            output_path = Path.joinpath(self._output_dir, "recipe_state.pt")
+            torch.save(state_dict, output_path)
+            logger.info(
+                "Recipe checkpoint of size "
+                f"{os.path.getsize(output_path) / 1000**3:.2f} GB "
+                f"saved to {output_path}"
+            )
+        else:
+            logger.info("Saving final epoch checkpoint.")
+            if adapter_only:
+                logger.info(
+                    "Please note that you have set adapter_only=True, so only adapter weights will be saved."
+                    "You need to merge the adapter weights into your base model for further use. "
+                    f"See {self.__class__.__name__}.save_checkpoint for more details."
+                )
+            else:
+                logger.info(
+                    "The full model checkpoint, including all weights and configurations, has been saved successfully."
+                    "You can now use this checkpoint for further training or inference."
+                )
+
+    def _upload_to_hf(self, local_path: Path, epoch: int, hf_iter_index: Optional[int], cpt_idx: str, cfg: DictConfig) -> None:
+        """
+        Helper to upload the local checkpoint file to your huggingface repo with a custom name.
+        """
+
+        token = HfFolder.get_token()
+        if token is None:
+            logger.warning("No HF token found. Skipping Hugging Face upload.")
+            return
+
+        # build custom file name
+        if hf_iter_index is not None:
+            file_basename = f"qwen2_0.5B_{cfg.dataset.start_index}-{cfg.dataset.end_index}-epoch-1-{hf_iter_index}-{cpt_idx}.pt"
+        else:
+            file_basename = f"qwen2_0.5B_{cfg.dataset.start_index}-{cfg.dataset.end_index}-epoch-1-{epoch}-{cpt_idx}.pt"
+
+        # Use huggingface_hub to upload
+        api = HfApi()
+
+        print(f"Uploading {local_path} to HF repo {cfg.repo_id} with name {file_basename}")
+        api.upload_file(
+            path_or_fileobj=str(local_path),
+            path_in_repo=file_basename,
+            repo_id=cfg.repo_id,
+            repo_type="model",
+            token=token,
+        )
+
+        print(f"Upload of {file_basename} complete")
 
 
 class FullModelMetaCheckpointer(_CheckpointerInterface):

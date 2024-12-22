@@ -66,9 +66,12 @@ checkpointer:
   model_type: QWEN2
 resume_from_checkpoint: False
 
+repo_id: "ash001/hivemind-torchtune-0.5b"
+
 # Fine-tuning arguments
 batch_size: 8
 number_of_syncs_per_epoch: 100
+retrain_samples_percentage: 0.2
 epochs: 2
 optimizer:
   _component_: torch.optim.AdamW
