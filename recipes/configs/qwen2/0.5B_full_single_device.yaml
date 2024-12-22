@@ -61,9 +61,8 @@ checkpointer:
   # checkpoint_files: [
   #   model.safetensors
   # ]
-  checkpoint_files: [
-    qwen2_0.5B_0-100000-epoch-1-1-0001.pt
-  ]
+  checkpoint_files:
+    - qwen2_0.5B_0-100000-epoch-1-1-0001.pt
   recipe_checkpoint: null
   output_dir: /tmp/Qwen2-0.5B-Instruct-finetune
   model_type: QWEN2
