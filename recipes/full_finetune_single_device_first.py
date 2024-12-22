@@ -222,7 +222,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         if self._resume_from_checkpoint:
             downloaded_path = hf_hub_download(
                 repo_id=cfg.repo_id,
-                filename=cfg.checkpointer.checkpoint_files,
+                filename=cfg.checkpointer.checkpoint_files[0],
                 repo_type="model",
             )
             cfg.checkpointer.checkpoint_dir = str(Path(downloaded_path).parent)
