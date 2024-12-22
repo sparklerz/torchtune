@@ -384,12 +384,17 @@ class FullModelHFCheckpointer(_CheckpointerInterface):
         # recipe_checkpoint contains the recipe state. This should be available if
         # resume_from_checkpoint is True
         self._recipe_checkpoint = None
-        if self._resume_from_checkpoint:
-            if recipe_checkpoint is None:
-                raise ValueError(
-                    "If resume_from_checkpoint is True, recipe_checkpoint file must be provided."
-                )
+        # if self._resume_from_checkpoint:
+        #     if recipe_checkpoint is None:
+        #         raise ValueError(
+        #             "If resume_from_checkpoint is True, recipe_checkpoint file must be provided."
+        #         )
+        #     self._recipe_checkpoint = get_path(self._checkpoint_dir, recipe_checkpoint)
+
+        if self._resume_from_checkpoint and recipe_checkpoint is not None:
             self._recipe_checkpoint = get_path(self._checkpoint_dir, recipe_checkpoint)
+        else:
+            self._recipe_checkpoint = None
 
     def _validate_hf_checkpoint_files(self, checkpoint_files: List[str]) -> List[Path]:
         """
@@ -505,7 +510,7 @@ class FullModelHFCheckpointer(_CheckpointerInterface):
             adapter_state_dict = safe_torch_load(self._adapter_checkpoint)
             converted_state_dict[training.ADAPTER_KEY] = adapter_state_dict
 
-        if self._resume_from_checkpoint:
+        if self._recipe_checkpoint:
             recipe_state = safe_torch_load(self._recipe_checkpoint, mmap=False)
             converted_state_dict.update(recipe_state)
         return converted_state_dict

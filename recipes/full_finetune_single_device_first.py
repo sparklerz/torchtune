@@ -166,49 +166,49 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         )
         checkpoint_dict = self._checkpointer.load_checkpoint()
 
-        if self._resume_from_checkpoint:
-            self._update_recipe_state(checkpoint_dict)
+        # if self._resume_from_checkpoint:
+        #     self._update_recipe_state(checkpoint_dict)
         return checkpoint_dict
 
-    def _update_recipe_state(self, ckpt_dict: Dict[str, Any]) -> None:
-        """
-        Updates the recipe state from checkpoint.
-        """
-        try:
-            self.epochs_run = ckpt_dict[training.EPOCHS_KEY]
+    # def _update_recipe_state(self, ckpt_dict: Dict[str, Any]) -> None:
+    #     """
+    #     Updates the recipe state from checkpoint.
+    #     """
+    #     try:
+    #         self.epochs_run = ckpt_dict[training.EPOCHS_KEY]
 
-            # on mismatch, warn the user and prevent the override
-            if self.seed != ckpt_dict[training.SEED_KEY]:
-                warn(
-                    message=(
-                        "Config value for seed does not match the checkpoint value, "
-                        f"using the checkpoint value: {ckpt_dict[training.SEED_KEY]}"
-                    )
-                )
-                self.seed = ckpt_dict[training.SEED_KEY]
-            if self.max_steps_per_epoch != ckpt_dict[training.MAX_STEPS_KEY]:
-                warn(
-                    message=(
-                        "Config value for max_steps_per_epoch does not match the checkpoint value, "
-                        f"using the checkpoint value: {ckpt_dict[training.MAX_STEPS_KEY]}"
-                    )
-                )
-                self.max_steps_per_epoch = ckpt_dict[training.MAX_STEPS_KEY]
+    #         # on mismatch, warn the user and prevent the override
+    #         if self.seed != ckpt_dict[training.SEED_KEY]:
+    #             warn(
+    #                 message=(
+    #                     "Config value for seed does not match the checkpoint value, "
+    #                     f"using the checkpoint value: {ckpt_dict[training.SEED_KEY]}"
+    #                 )
+    #             )
+    #             self.seed = ckpt_dict[training.SEED_KEY]
+    #         if self.max_steps_per_epoch != ckpt_dict[training.MAX_STEPS_KEY]:
+    #             warn(
+    #                 message=(
+    #                     "Config value for max_steps_per_epoch does not match the checkpoint value, "
+    #                     f"using the checkpoint value: {ckpt_dict[training.MAX_STEPS_KEY]}"
+    #                 )
+    #             )
+    #             self.max_steps_per_epoch = ckpt_dict[training.MAX_STEPS_KEY]
 
-            # on mismatch, warn the user but allow the override
-            if self.total_epochs != ckpt_dict[training.TOTAL_EPOCHS_KEY]:
-                warn(
-                    message=(
-                        "Config value for total_epochs does not match the checkpoint value, "
-                        f"using the config value: {self.total_epochs}"
-                    )
-                )
+    #         # on mismatch, warn the user but allow the override
+    #         if self.total_epochs != ckpt_dict[training.TOTAL_EPOCHS_KEY]:
+    #             warn(
+    #                 message=(
+    #                     "Config value for total_epochs does not match the checkpoint value, "
+    #                     f"using the config value: {self.total_epochs}"
+    #                 )
+    #             )
 
-        except KeyError as e:
-            raise KeyError(
-                "Checkpoint does not contain the required keys needed for updating recipe state. "
-                "Are you sure you passed in the right recipe checkpoint?"
-            ) from e
+    #     except KeyError as e:
+    #         raise KeyError(
+    #             "Checkpoint does not contain the required keys needed for updating recipe state. "
+    #             "Are you sure you passed in the right recipe checkpoint?"
+    #         ) from e
 
     def setup(self, cfg: DictConfig) -> None:
         """
