@@ -688,7 +688,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         last_hivemind_epoch = self._optimizer.local_epoch  # track the global (swarm) epoch from hivemind
         print(f"Value of last_hivemind_epoch : {last_hivemind_epoch}")
 
-        self.save_ckpt_iter = 1
+        self.save_ckpt_iter = cfg.number_of_syncs_completed
 
         # self.epochs_run should be non-zero when we're resuming from a checkpoint
         for curr_epoch in range(self.epochs_run, self.total_epochs):
