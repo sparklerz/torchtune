@@ -344,6 +344,7 @@ class FullModelHFCheckpointer(_CheckpointerInterface):
         checkpoint_files: Union[List[str], Dict[str, str]],
         model_type: ModelType,
         output_dir: str,
+        checkpoint_files_initial: Optional[Union[List[str], Dict[str, str]]] = None,
         adapter_checkpoint: Optional[str] = None,
         recipe_checkpoint: Optional[str] = None,
         resume_from_checkpoint: bool = False,
