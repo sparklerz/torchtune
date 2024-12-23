@@ -58,9 +58,9 @@ model:
 checkpointer:
   _component_: torchtune.training.FullModelHFCheckpointer
   checkpoint_dir: /tmp/Qwen2-0.5B-Instruct
-  # checkpoint_files: [
-  #   model.safetensors
-  # ]
+  checkpoint_files_initial: [
+    model.safetensors
+  ]
   checkpoint_files:
     - qwen2_0.5B_0-100000-epoch-1-1-0001.pt
   recipe_checkpoint: null
