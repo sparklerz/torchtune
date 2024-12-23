@@ -236,7 +236,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             target_dir = Path(downloaded_ckpt).parent
             cfg.checkpointer.checkpoint_dir = str(target_dir)
         else:
-            cfg.checkpointer.checkpoint_dir = cfg.checkpointer.checkpoint_files_initial
+            cfg.checkpointer.checkpoint_files = cfg.checkpointer.checkpoint_files_initial
 
         ckpt_dict = self.load_checkpoint(cfg.checkpointer)#here load checkpoint
 
