@@ -636,7 +636,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
 
     def _loss_step(self, batch: Dict[str, torch.Tensor]) -> torch.Tensor:
         # Shape [b, s], needed for the loss not the model
-        print("Starting forward pass")
+        #print("Starting forward pass")
         
         labels = batch.pop("labels")
 
@@ -646,7 +646,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
 
         # print(f"line 677 - logits : {logits}")
 
-        print("Completed forward pass")
+        #print("Completed forward pass")
 
         # Shift labels to compute loss
         # equivalent to doing labels[..., 1:] and logits[..., :-1, :]
@@ -737,18 +737,18 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                 # Step with optimizer
                 if (idx + 1) % self._gradient_accumulation_steps == 0:
                     loss = running_loss / num_tokens
-                    print("Starting backward pass")
+                    #print("Starting backward pass")
                     loss.backward()
-                    print("Completed backward pass")
+                    #print("Completed backward pass")
                     if self._clip_grad_norm is not None:
                         grad_norm = torch.nn.utils.clip_grad_norm_(
                             self._model.parameters(),
                             max_norm=float(self._clip_grad_norm),
                         )
                     if not self._optimizer_in_bwd:
-                        print("Calling self._optimizer.step()")
+                        #print("Calling self._optimizer.step()")
                         self._optimizer.step()
-                        print("Calling self._optimizer.zero_grad()")
+                        #print("Calling self._optimizer.zero_grad()")
                         self._optimizer.zero_grad(set_to_none=True)
 
                     # Need to fix `lr_scheduler.step()` before `optimizer.step()` warning
