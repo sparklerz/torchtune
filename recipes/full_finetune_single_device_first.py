@@ -797,8 +797,8 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                     print(f"Value of new_hivemind_epoch : {new_hivemind_epoch}")
                     if new_hivemind_epoch > last_hivemind_epoch:
                         print(f"Hivemind Global epoch advanced from {last_hivemind_epoch} to {new_hivemind_epoch}")
-                        self.save_checkpoint(epoch=new_hivemind_epoch, cfg=cfg, hf_iter_index=self.save_ckpt_iter)
                         self.save_ckpt_iter += 1
+                        self.save_checkpoint(epoch=new_hivemind_epoch, cfg=cfg, hf_iter_index=self.save_ckpt_iter)
                         last_hivemind_epoch = new_hivemind_epoch
 
                 # Stop tracking CUDA memory now that active steps are complete
