@@ -802,7 +802,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                         
                         # Force any asynchronous averaging or optimizer updates to finish and apply to your local model
                         # This is a "no-op" step that blocks until delayed updates are done
-                        self._optimizer.step(
+                        self._optimizer.state_averager.step(
                             wait_for_delayed_updates=True, 
                             apply_delayed_updates=True,
                             optimizer_step=False,      # we are NOT doing another local optimizer step
