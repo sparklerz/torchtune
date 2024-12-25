@@ -799,6 +799,19 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                     print(f"Value of new_hivemind_epoch : {new_hivemind_epoch}")
                     if new_hivemind_epoch > last_hivemind_epoch:
                         print(f"Hivemind Global epoch advanced from {last_hivemind_epoch} to {new_hivemind_epoch}")
+                        
+                        # Force any asynchronous averaging or optimizer updates to finish and apply to your local model
+                        # This is a "no-op" step that blocks until delayed updates are done
+                        self._optimizer.step(
+                            wait_for_delayed_updates=True, 
+                            apply_delayed_updates=True,
+                            optimizer_step=False,      # we are NOT doing another local optimizer step
+                            averaging_round=False,     # we are NOT kicking off another averaging
+                            increment_epoch=False,     # do NOT increment epoch here
+                            zero_grad=False            # no grad reset here
+                        )
+                        
+                        # Now your local model has the actual averaged weights
                         self.save_ckpt_iter += 1
                         self.save_checkpoint(epoch=new_hivemind_epoch, cfg=cfg, hf_iter_index=self.save_ckpt_iter)
                         last_hivemind_epoch = new_hivemind_epoch
