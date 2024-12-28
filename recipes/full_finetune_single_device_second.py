@@ -252,7 +252,8 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                 host_maddrs=[self._host_maddrs],
                 initial_peers=[self._initial_peers],
                 start=True,
-                wait_timeout=300
+                wait_timeout=300,
+                client_mode=True
             )
             print('\n'.join(str(addr) for addr in self._dht.get_visible_maddrs()))
             print(f"Global IP: {hivemind.utils.networking.choose_ip_address(self._dht.get_visible_maddrs())}")
