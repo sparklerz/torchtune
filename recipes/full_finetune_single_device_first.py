@@ -286,8 +286,8 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                 optimizer=optimizer_lambda,  # wrap the optimizer defined above
                 params=self._model.parameters(),
                 use_local_updates=True,     # perform optimizer steps with local gradients, average parameters in background
-                matchmaking_time=600.0,       # when averaging parameters, gather peers in background for up to this many seconds
-                averaging_timeout=600.0,     # give up on averaging if not successful in this many seconds
+                matchmaking_time=900.0,       # when averaging parameters, gather peers in background for up to this many seconds
+                averaging_timeout=900.0,     # give up on averaging if not successful in this many seconds
                 offload_optimizer=False,
                 verbose=True,               # print logs incessently
             )
@@ -813,6 +813,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                         
                         # Now your local model has the actual averaged weights
                         self.save_ckpt_iter += 1
+                        print(f"Entering save_checkpoint method")
                         self.save_checkpoint(epoch=new_hivemind_epoch, cfg=cfg, hf_iter_index=self.save_ckpt_iter)
                         last_hivemind_epoch = new_hivemind_epoch
 

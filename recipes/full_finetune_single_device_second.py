@@ -267,8 +267,8 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                 optimizer=optimizer_lambda,  # wrap the optimizer defined above
                 params=self._model.parameters(),
                 use_local_updates=True,     # perform optimizer steps with local gradients, average parameters in background
-                matchmaking_time=600.0,       # when averaging parameters, gather peers in background for up to this many seconds
-                averaging_timeout=600.0,     # give up on averaging if not successful in this many seconds
+                matchmaking_time=900.0,       # when averaging parameters, gather peers in background for up to this many seconds
+                averaging_timeout=900.0,     # give up on averaging if not successful in this many seconds
                 load_state_timeout=300.0,    # Add explicit timeout for loading state
                 offload_optimizer=False,
                 verbose=True,               # print logs incessently
