@@ -267,7 +267,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                 target_batch_size= (cfg.dataset.end_index - cfg.dataset.start_index)/(cfg.number_of_syncs_per_epoch),       # after peers collectively process this many samples, average weights and begin the next epoch
                 optimizer=optimizer_lambda,  # wrap the optimizer defined above
                 params=self._model.parameters(),
-                use_local_updates=False,     # perform optimizer steps with local gradients, average parameters in background
+                use_local_updates=True,     # perform optimizer steps with local gradients, average parameters in background
                 matchmaking_time=1000.0,       # when averaging parameters, gather peers in background for up to this many seconds
                 averaging_timeout=1000.0,     # give up on averaging if not successful in this many seconds
                 load_state_timeout=300.0,    # Add explicit timeout for loading state
