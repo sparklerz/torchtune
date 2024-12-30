@@ -252,8 +252,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                 host_maddrs=[self._host_maddrs],
                 initial_peers=[self._initial_peers],
                 start=True,
-                wait_timeout=300,
-                client_mode=True
+                wait_timeout=300
             )
             print('\n'.join(str(addr) for addr in self._dht.get_visible_maddrs()))
             print(f"Global IP: {hivemind.utils.networking.choose_ip_address(self._dht.get_visible_maddrs())}")
@@ -273,7 +272,6 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                 load_state_timeout=300.0,    # Add explicit timeout for loading state
                 offload_optimizer=False,
                 verbose=True,               # print logs incessently
-                client_mode=True
             )
 
             print("After hivemind.Optimizer wrapper")
