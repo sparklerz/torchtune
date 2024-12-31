@@ -271,7 +271,8 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         if self._host_maddrs:
             self._dht = hivemind.DHT(
                 host_maddrs=[self._host_maddrs],
-                start=True
+                start=True,
+                client_mode=False
             )
             print('\n'.join(str(addr) for addr in self._dht.get_visible_maddrs()))
             print(f"Global IP: {hivemind.utils.networking.choose_ip_address(self._dht.get_visible_maddrs())}")
@@ -286,10 +287,11 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                 optimizer=optimizer_lambda,  # wrap the optimizer defined above
                 params=self._model.parameters(),
                 use_local_updates=True,     # perform optimizer steps with local gradients, average parameters in background
-                matchmaking_time=1000.0,       # when averaging parameters, gather peers in background for up to this many seconds
-                averaging_timeout=1000.0,     # give up on averaging if not successful in this many seconds
+                matchmaking_time=400.0,       # when averaging parameters, gather peers in background for up to this many seconds
+                averaging_timeout=600.0,     # give up on averaging if not successful in this many seconds
                 offload_optimizer=False,
                 verbose=True,               # print logs incessently
+                client_mode=False
             )
 
             print("After hivemind.Optimizer wrapper")
