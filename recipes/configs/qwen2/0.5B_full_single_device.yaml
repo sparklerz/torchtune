@@ -34,8 +34,8 @@ dataset:
   _component_: torchtune.datasets.huggingface_dataset.HuggingFaceDataset
   path: ash001/arxiv-abstract
   train_test_split: 0.8
-  start_index: 800000
-  end_index: 1200000
+  start_index: 1200000
+  end_index: 1600000
 packed: False
 seed: 42                # seed for reproducibility
 shuffle: True           # enable shuffling
@@ -62,7 +62,7 @@ checkpointer:
     model.safetensors
   ]
   checkpoint_files:
-    - qwen2_0.5B_800000-1200000-epoch-1-sync-index-2-part-0001.pt
+    - qwen2_0.5B_800000-1200000-epoch-1-sync-index-5-part-0001.pt
   recipe_checkpoint: null
   output_dir: /tmp/Qwen2-0.5B-Instruct-finetune
   model_type: QWEN2
