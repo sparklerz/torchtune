@@ -35,7 +35,7 @@ dataset:
   path: ash001/arxiv-abstract
   train_test_split: 0.8
   start_index: 1200000
-  end_index: 1600000
+  end_index: 1400000
 packed: False
 seed: 42                # seed for reproducibility
 shuffle: True           # enable shuffling
@@ -67,13 +67,13 @@ checkpointer:
   output_dir: /tmp/Qwen2-0.5B-Instruct-finetune
   model_type: QWEN2
 resume_from_checkpoint: True
-number_of_syncs_completed: 2
+number_of_syncs_completed: 0
 
 repo_id: "ash001/hivemind-torchtune-0.5b"
 
 # Fine-tuning arguments
 batch_size: 64
-number_of_syncs_per_epoch: 4
+number_of_syncs_per_epoch: 2
 retrain_samples_percentage: 0.3
 epochs: 2
 optimizer:

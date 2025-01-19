@@ -715,7 +715,8 @@ class FullModelHFCheckpointer(_CheckpointerInterface):
     def save_checkpoint_to_hub(
         self,
         state_dict: Dict[str, Any],
-        epoch: int,
+        torchtune_epoch: int,
+        hivemind_epoch: int,
         cfg: DictConfig,
         intermediate_checkpoint: bool = False,
         adapter_only: bool = False,
@@ -739,8 +740,6 @@ class FullModelHFCheckpointer(_CheckpointerInterface):
             ValueError: if ``adapter_only`` is True and adapter checkpoint not found in state_dict.
         """
         self._output_dir.mkdir(exist_ok=True)
-
-        hf_iter_index = state_dict.pop("hf_iter_index", None)
 
         # convert the state_dict back to hf format; do this inplace
         if not adapter_only:
@@ -808,13 +807,13 @@ class FullModelHFCheckpointer(_CheckpointerInterface):
             for cpt_idx, model_state_dict in split_state_dicts.items():
                 if not self._safe_serialization:
                     output_path = Path.joinpath(
-                        self._output_dir, f"hf_model_{cpt_idx}_{epoch}"
+                        self._output_dir, f"hf_model_{cpt_idx}_{torchtune_epoch}_{hivemind_epoch}"
                     ).with_suffix(".pt")
                     torch.save(model_state_dict, output_path)
                 else:
                     output_path = Path.joinpath(
                         self._output_dir,
-                        f"model-0{cpt_idx}-of-0{list(split_state_dicts.keys())[-1]}_{epoch}",
+                        f"model-0{cpt_idx}-of-0{list(split_state_dicts.keys())[-1]}_{torchtune_epoch}_{hivemind_epoch}",
                     ).with_suffix(".safetensors")
                     save_file(model_state_dict, output_path, metadata={"format": "pt"})
                 logger.info(
@@ -823,13 +822,13 @@ class FullModelHFCheckpointer(_CheckpointerInterface):
                     f"saved to {output_path}"
                 )
 
-                self._upload_to_hf(output_path, epoch, hf_iter_index, cpt_idx, cfg=cfg)
+                self._upload_to_hf(output_path, torchtune_epoch, hivemind_epoch, cpt_idx, cfg=cfg)
 
         if training.ADAPTER_KEY in state_dict:
             # Save torchtune format adapter weights even if we save PEFT format
             # This way we can resume no matter what (and memory footprint of adapter weights is small)
             output_path = Path.joinpath(
-                self._output_dir, f"adapter_{epoch}"
+                self._output_dir, f"adapter_{torchtune_epoch}_{hivemind_epoch}"
             ).with_suffix(".pt")
             torch.save(state_dict[training.ADAPTER_KEY], output_path)
             logger.info(
@@ -913,7 +912,7 @@ class FullModelHFCheckpointer(_CheckpointerInterface):
                     "You can now use this checkpoint for further training or inference."
                 )
 
-    def _upload_to_hf(self, local_path: Path, epoch: int, hf_iter_index: Optional[int], cpt_idx: str, cfg: DictConfig) -> None:
+    def _upload_to_hf(self, local_path: Path, torchtune_epoch: int, hivemind_epoch: int, cpt_idx: str, cfg: DictConfig) -> None:
         """
         Helper to upload the local checkpoint file to your huggingface repo with a custom name.
         """
@@ -924,10 +923,7 @@ class FullModelHFCheckpointer(_CheckpointerInterface):
             return
 
         # build custom file name
-        if hf_iter_index is not None:
-            file_basename = f"qwen2_0.5B_{cfg.dataset.start_index}-{cfg.dataset.end_index}-epoch-1-sync-index-{hf_iter_index}-part-{cpt_idx}.pt"
-        else:
-            file_basename = f"qwen2_0.5B_{cfg.dataset.start_index}-{cfg.dataset.end_index}-epoch-1-sync-index-{epoch}-part-{cpt_idx}.pt"
+        file_basename = f"qwen2_0.5B_{cfg.dataset.start_index}-{cfg.dataset.end_index}-epoch-{torchtune_epoch}-sync-index-{hivemind_epoch}-part-{cpt_idx}.pt"
 
         # Use huggingface_hub to upload
         api = HfApi()

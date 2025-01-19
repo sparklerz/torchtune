@@ -278,12 +278,12 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             print(f"Global IP: {hivemind.utils.networking.choose_ip_address(self._dht.get_visible_maddrs())}")
             print(f"To join the training, use initial_peers = {[str(addr) for addr in self._dht.get_visible_maddrs()]}")
 
-            # Wrap the optimizer with Hivemind
+            # Wrap the optimizer with Hivemind optimizer
             self._optimizer = hivemind.Optimizer(
                 dht=self._dht,              # use a DHT that is connected with other peers            
                 run_id='my_llama_run',      # unique identifier of this collaborative run
                 batch_size_per_step=cfg.batch_size,      # each call to opt.step adds this many samples towards the next epoch
-                target_batch_size= (cfg.dataset.end_index - cfg.dataset.start_index)/(cfg.number_of_syncs_per_epoch),       # after peers collectively process this many samples, average weights and begin the next epoch
+                target_batch_size= int((cfg.dataset.end_index - cfg.dataset.start_index) * (1 + cfg.retrain_samples_percentage)/cfg.number_of_syncs_per_epoch),       # after peers collectively process this many samples, average weights and begin the next epoch
                 optimizer=optimizer_lambda,  # wrap the optimizer defined above
                 params=self._model.parameters(),
                 use_local_updates=True,     # perform optimizer steps with local gradients, average parameters in background
@@ -606,14 +606,14 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
 
         return sampler, dataloader
 
-    def save_checkpoint(self, epoch: int, cfg: DictConfig, hf_iter_index: int = 1) -> None:
+    def save_checkpoint(self, torchtune_epoch: int, hivemind_epoch: int, cfg: DictConfig) -> None:
         """
         Save state dict to file. The recipe save_checkpoint method is responsible for
         correctly creating the checkpoint dict and passing to the checkpointer.
         """
         ckpt_dict = {training.MODEL_KEY: self._model.state_dict()}
         # if training is in-progress, checkpoint the optimizer state as well
-        if epoch + 1 < (cfg.number_of_syncs_per_epoch * (1 + cfg.retrain_samples_percentage)):
+        if ((torchtune_epoch < cfg.epochs) or (hivemind_epoch < cfg.number_of_syncs_per_epoch)):
             ckpt_dict.update(
                 {
                     training.SEED_KEY: self.seed,
@@ -627,12 +627,11 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             else:
                 ckpt_dict[training.OPT_KEY] = self._optim_ckpt_wrapper.state_dict()
 
-        ckpt_dict["hf_iter_index"] = hf_iter_index
-
         self._checkpointer.save_checkpoint_to_hub(
             ckpt_dict,
-            epoch=epoch,
-            intermediate_checkpoint=(epoch + 1 < (cfg.number_of_syncs_per_epoch * (1 + cfg.retrain_samples_percentage))),
+            torchtune_epoch=torchtune_epoch,
+            hivemind_epoch=hivemind_epoch,
+            intermediate_checkpoint=((torchtune_epoch < cfg.epochs) or (hivemind_epoch < cfg.number_of_syncs_per_epoch)),
             cfg=cfg
         )
 
@@ -671,8 +670,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
 
     def train(self, cfg: DictConfig) -> None:
         """
-        The core training loop. Supports training on subsets of the dataset using the
-        ``max_steps_per_epoch``.
+        The core training loop. Modified so that each epoch covers full dataset slice *plus* retrain_samples_percentage duplicates.
         """
         if self._compile:
             print(
@@ -692,7 +690,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         last_hivemind_epoch = self._optimizer.local_epoch  # track the global (swarm) epoch from hivemind
         print(f"Value of last_hivemind_epoch : {last_hivemind_epoch}")
 
-        self.save_ckpt_iter = cfg.number_of_syncs_completed
+        self.sync_count  = cfg.number_of_syncs_completed
 
         # self.epochs_run should be non-zero when we're resuming from a checkpoint
         for curr_epoch in range(self.epochs_run, self.total_epochs):
@@ -704,9 +702,12 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             first_few_indices = [next(sample_iter) for _ in range(min(10, len(self._sampler)))]
             print(f"Sampler indices for epoch {curr_epoch} (first 10): {first_few_indices}")
 
-            pbar = tqdm(total=self._steps_per_epoch)
+            pbar = tqdm(total=cfg.number_of_syncs_per_epoch, initial=self.sync_count)
             for idx, batch in enumerate(self._dataloader):
                 # print(f"line 727 - batch : {batch}")
+                if self.sync_count >= cfg.number_of_syncs_per_epoch:
+                    print(f"Reached {cfg.number_of_syncs_per_epoch} Hivemind syncs this epoch. Breaking...")
+                    break
 
                 if (
                     self.max_steps_per_epoch is not None
@@ -761,7 +762,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                     loss_to_log = loss.item()
                     pbar.update(1)
                     pbar.set_description(
-                        f"{curr_epoch + 1}|{self.global_step}|Loss: {loss_to_log}"
+                        f"Epoch {curr_epoch + 1}|Step {self.global_step}|Loss: {loss_to_log}"
                     )
                     print()
 
@@ -814,9 +815,9 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                         )
                         
                         # Now your local model has the actual averaged weights
-                        self.save_ckpt_iter += 1
+                        self.sync_count  += 1
                         print(f"Entering save_checkpoint method")
-                        self.save_checkpoint(epoch=new_hivemind_epoch, cfg=cfg, hf_iter_index=self.save_ckpt_iter)
+                        self.save_checkpoint(torchtune_epoch=self.epochs_run+1, hivemind_epoch=self.sync_count, cfg=cfg)
                         last_hivemind_epoch = new_hivemind_epoch
 
                 # Stop tracking CUDA memory now that active steps are complete
@@ -837,6 +838,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                 #time.sleep(2)
 
             self.epochs_run += 1#local count
+            self.sync_count = 0
             # self.save_checkpoint(epoch=curr_epoch)#here save checkpoint
 
         self._profiler.stop()

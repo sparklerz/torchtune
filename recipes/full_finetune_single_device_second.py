@@ -258,12 +258,12 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             print(f"Global IP: {hivemind.utils.networking.choose_ip_address(self._dht.get_visible_maddrs())}")
             print(f"To join the training, use initial_peers = {[str(addr) for addr in self._dht.get_visible_maddrs()]}")
 
-            # Wrap the optimizer with Hivemind
+            # Wrap the optimizer with Hivemind optimizer
             self._optimizer = hivemind.Optimizer(
                 dht=self._dht,              # use a DHT that is connected with other peers            
                 run_id='my_llama_run',      # unique identifier of this collaborative run
                 batch_size_per_step=cfg.batch_size,      # each call to opt.step adds this many samples towards the next epoch
-                target_batch_size= (cfg.dataset.end_index - cfg.dataset.start_index)/(cfg.number_of_syncs_per_epoch),       # after peers collectively process this many samples, average weights and begin the next epoch
+                target_batch_size= int((cfg.dataset.end_index - cfg.dataset.start_index) * (1 + cfg.retrain_samples_percentage)/cfg.number_of_syncs_per_epoch),       # after peers collectively process this many samples, average weights and begin the next epoch
                 optimizer=optimizer_lambda,  # wrap the optimizer defined above
                 params=self._model.parameters(),
                 use_local_updates=True,     # perform optimizer steps with local gradients, average parameters in background
@@ -662,10 +662,9 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
 
         return loss
 
-    def train(self) -> None:
+    def train(self, cfg: DictConfig) -> None:
         """
-        The core training loop. Supports training on subsets of the dataset using the
-        ``max_steps_per_epoch``.
+        The core training loop. Modified so that each epoch covers full dataset slice *plus* retrain_samples_percentage duplicates.
         """
         if self._compile:
             print(
@@ -681,6 +680,12 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         num_tokens = 0
 
         self._profiler.start()
+        
+        last_hivemind_epoch = self._optimizer.local_epoch  # track the global (swarm) epoch from hivemind
+        print(f"Value of last_hivemind_epoch : {last_hivemind_epoch}")
+
+        self.sync_count  = cfg.number_of_syncs_completed
+
         # self.epochs_run should be non-zero when we're resuming from a checkpoint
         for curr_epoch in range(self.epochs_run, self.total_epochs):
             # Update the sampler to ensure data is correctly shuffled across epochs
@@ -691,9 +696,12 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             first_few_indices = [next(sample_iter) for _ in range(min(10, len(self._sampler)))]
             print(f"Sampler indices for epoch {curr_epoch} (first 10): {first_few_indices}")
 
-            pbar = tqdm(total=self._steps_per_epoch)
+            pbar = tqdm(total=cfg.number_of_syncs_per_epoch, initial=self.sync_count)
             for idx, batch in enumerate(self._dataloader):
                 # print(f"line 727 - batch : {batch}")
+                if self.sync_count >= cfg.number_of_syncs_per_epoch:
+                    print(f"Reached {cfg.number_of_syncs_per_epoch} Hivemind syncs this epoch. Breaking...")
+                    break
 
                 if (
                     self.max_steps_per_epoch is not None
@@ -748,7 +756,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                     loss_to_log = loss.item()
                     pbar.update(1)
                     pbar.set_description(
-                        f"{curr_epoch + 1}|{self.global_step}|Loss: {loss_to_log}"
+                        f"Epoch {curr_epoch + 1}|Step {self.global_step}|Loss: {loss_to_log}"
                     )
                     print()
 
@@ -784,6 +792,15 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                     num_tokens = 0
                     t0 = time.perf_counter()
 
+                    new_hivemind_epoch = self._optimizer.local_epoch
+                    print(f"Value of new_hivemind_epoch : {new_hivemind_epoch}")
+                    if new_hivemind_epoch > last_hivemind_epoch:
+                        print(f"Hivemind Global epoch advanced from {last_hivemind_epoch} to {new_hivemind_epoch}")
+                        
+                        # Now your local model has the actual averaged weights
+                        self.sync_count  += 1
+                        last_hivemind_epoch = new_hivemind_epoch
+
                 # Stop tracking CUDA memory now that active steps are complete
                 if (
                     curr_epoch == 0
@@ -802,6 +819,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                 #time.sleep(2)
 
             self.epochs_run += 1#local count
+            self.sync_count = 0
             # self.save_checkpoint(epoch=curr_epoch)#here save checkpoint
 
         self._profiler.stop()
@@ -827,7 +845,7 @@ def recipe_main(cfg: DictConfig) -> None:
     print("Entering setup method")
     recipe.setup(cfg=cfg)
     print("Entering train method")
-    recipe.train()
+    recipe.train(cfg=cfg)
     print("Entering cleanup method")
     recipe.cleanup()
 
