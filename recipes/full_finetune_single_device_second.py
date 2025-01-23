@@ -686,6 +686,8 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
 
         self.sync_count  = cfg.number_of_syncs_completed
 
+        self.epochs_run = cfg.number_of_epochs_completed
+
         # self.epochs_run should be non-zero when we're resuming from a checkpoint
         for curr_epoch in range(self.epochs_run, self.total_epochs):
             # Update the sampler to ensure data is correctly shuffled across epochs
@@ -700,7 +702,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             for idx, batch in enumerate(self._dataloader):
                 # print(f"line 727 - batch : {batch}")
                 if self.sync_count >= cfg.number_of_syncs_per_epoch:
-                    print(f"Reached {cfg.number_of_syncs_per_epoch} Hivemind syncs this epoch. Breaking...")
+                    tqdm.write(f"Reached {cfg.number_of_syncs_per_epoch} Hivemind syncs this epoch. Breaking...")
                     break
 
                 if (
@@ -758,7 +760,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                     pbar.set_description(
                         f"Epoch {curr_epoch + 1}|Step {self.global_step}|Loss: {loss_to_log}"
                     )
-                    print()
+                    tqdm.write()
 
                     # Log per-step metrics
                     if self.global_step % self._log_every_n_steps == 0:
@@ -793,9 +795,20 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                     t0 = time.perf_counter()
 
                     new_hivemind_epoch = self._optimizer.local_epoch
-                    print(f"Value of new_hivemind_epoch : {new_hivemind_epoch}")
+                    tqdm.write(f"Value of new_hivemind_epoch : {new_hivemind_epoch}")
                     if new_hivemind_epoch > last_hivemind_epoch:
-                        print(f"Hivemind Global epoch advanced from {last_hivemind_epoch} to {new_hivemind_epoch}")
+                        tqdm.write(f"Hivemind Global epoch advanced from {last_hivemind_epoch} to {new_hivemind_epoch}")
+                        
+                        # Force any asynchronous averaging or optimizer updates to finish and apply to your local model
+                        # This is a "no-op" step that blocks until delayed updates are done
+                        self._optimizer.state_averager.step(
+                            wait_for_delayed_updates=True, 
+                            apply_delayed_updates=True,
+                            optimizer_step=False,      # we are NOT doing another local optimizer step
+                            averaging_round=False,     # we are NOT kicking off another averaging
+                            increment_epoch=False,     # do NOT increment epoch here
+                            zero_grad=False            # no grad reset here
+                        )
                         
                         # Now your local model has the actual averaged weights
                         self.sync_count  += 1

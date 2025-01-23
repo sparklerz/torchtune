@@ -62,12 +62,12 @@ checkpointer:
     model.safetensors
   ]
   checkpoint_files:
-    - qwen2_0.5B_800000-1200000-epoch-1-sync-index-5-part-0001.pt
+    - qwen2_0.5B_1200000-1300000-epoch-2-sync-index-1-part-0001.pt
   recipe_checkpoint: null
   output_dir: /tmp/Qwen2-0.5B-Instruct-finetune
   model_type: QWEN2
 resume_from_checkpoint: True
-number_of_syncs_completed: 0
+number_of_syncs_completed: 1
 
 repo_id: "ash001/hivemind-torchtune-0.5b"
 
@@ -76,6 +76,7 @@ batch_size: 64
 number_of_syncs_per_epoch: 2
 retrain_samples_percentage: 0.3
 epochs: 2
+number_of_epochs_completed: 1
 optimizer:
   _component_: torch.optim.AdamW
   fused: True
