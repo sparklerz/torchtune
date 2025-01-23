@@ -766,7 +766,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                     pbar.set_description(
                         f"Epoch {curr_epoch + 1}|Step {self.global_step}|Loss: {loss_to_log}"
                     )
-                    tqdm.write()
+                    tqdm.write("")
 
                     # Log per-step metrics
                     if self.global_step % self._log_every_n_steps == 0:
