@@ -762,11 +762,12 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                     self.global_step += 1
 
                     loss_to_log = loss.item()
-                    pbar.update(1)
+                    
                     pbar.set_description(
                         f"Epoch {curr_epoch + 1}|Step {self.global_step}|Loss: {loss_to_log}"
                     )
-                    tqdm.write("")
+                    pbar.write("")   
+                    pbar.refresh()
 
                     # Log per-step metrics
                     if self.global_step % self._log_every_n_steps == 0:
@@ -841,6 +842,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
 
             self.epochs_run += 1#local count
             self.sync_count = 0
+            pbar.update(1)
             # self.save_checkpoint(epoch=curr_epoch)#here save checkpoint
 
         self._profiler.stop()
