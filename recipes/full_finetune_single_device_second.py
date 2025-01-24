@@ -698,7 +698,8 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             first_few_indices = [next(sample_iter) for _ in range(min(10, len(self._sampler)))]
             print(f"Sampler indices for epoch {curr_epoch} (first 10): {first_few_indices}")
 
-            pbar = tqdm(total=cfg.number_of_syncs_per_epoch, initial=self.sync_count)
+            pbar = tqdm(total=int((cfg.dataset.end_index - cfg.dataset.start_index) * (1 + cfg.retrain_samples_percentage)/cfg.number_of_syncs_per_epoch))
+
             for idx, batch in enumerate(self._dataloader):
                 # print(f"line 727 - batch : {batch}")
                 if self.sync_count >= cfg.number_of_syncs_per_epoch:
@@ -756,12 +757,10 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                     self.global_step += 1
 
                     loss_to_log = loss.item()
-                    
+                    pbar.update(1)
                     pbar.set_description(
                         f"Epoch {curr_epoch + 1}|Step {self.global_step}|Loss: {loss_to_log}"
                     )
-                    pbar.write("")   
-                    pbar.refresh()
 
                     # Log per-step metrics
                     if self.global_step % self._log_every_n_steps == 0:
@@ -834,7 +833,6 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
 
             self.epochs_run += 1#local count
             self.sync_count = 0
-            pbar.update(1)
             # self.save_checkpoint(epoch=curr_epoch)#here save checkpoint
 
         self._profiler.stop()
