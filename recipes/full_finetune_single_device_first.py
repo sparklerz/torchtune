@@ -763,7 +763,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                     self.global_step += 1
 
                     loss_to_log = loss.item()
-                    pbar.update(1)
+                    pbar.update(cfg.batch_size)
                     pbar.set_description(
                         f"Epoch {curr_epoch + 1}|Step {self.global_step}|Loss: {loss_to_log}"
                     )
@@ -820,6 +820,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                         self.sync_count  += 1
                         tqdm.write(f"Entering save_checkpoint method")
                         self.save_checkpoint(torchtune_epoch=self.epochs_run+1, hivemind_epoch=self.sync_count, cfg=cfg)
+                        pbar = tqdm(total=int((cfg.dataset.end_index - cfg.dataset.start_index) * (1 + cfg.retrain_samples_percentage)/cfg.number_of_syncs_per_epoch))
                         last_hivemind_epoch = new_hivemind_epoch
 
                 # Stop tracking CUDA memory now that active steps are complete
