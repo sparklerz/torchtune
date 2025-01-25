@@ -818,6 +818,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                         
                         # Now your local model has the actual averaged weights
                         self.sync_count  += 1
+                        pbar.close()
                         tqdm.write(f"Entering save_checkpoint method")
                         self.save_checkpoint(torchtune_epoch=self.epochs_run+1, hivemind_epoch=self.sync_count, cfg=cfg)
                         pbar = tqdm(total=int((cfg.dataset.end_index - cfg.dataset.start_index) * (1 + cfg.retrain_samples_percentage)/cfg.number_of_syncs_per_epoch))
@@ -840,6 +841,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                 self._profiler.step()
                 #time.sleep(2)
 
+            pbar.close()
             self.epochs_run += 1#local count
             self.sync_count = 0
             # self.save_checkpoint(epoch=curr_epoch)#here save checkpoint
