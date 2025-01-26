@@ -812,6 +812,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                         
                         # Now your local model has the actual averaged weights
                         self.sync_count  += 1
+                        self.global_step = 0
                         pbar.close()
                         pbar = tqdm(total=int((cfg.dataset.end_index - cfg.dataset.start_index) * (1 + cfg.retrain_samples_percentage)/cfg.number_of_syncs_per_epoch))
                         last_hivemind_epoch = new_hivemind_epoch

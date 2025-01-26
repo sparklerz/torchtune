@@ -818,6 +818,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                         
                         # Now your local model has the actual averaged weights
                         self.sync_count  += 1
+                        self.global_step = 0
                         pbar.close()
                         tqdm.write(f"Entering save_checkpoint method")
                         self.save_checkpoint(torchtune_epoch=self.epochs_run+1, hivemind_epoch=self.sync_count, cfg=cfg)
