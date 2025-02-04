@@ -35,7 +35,7 @@ dataset:
   path: ash001/arxiv-abstract
   train_test_split: 0.8
   start_index: 1400000
-  end_index: 1401000
+  end_index: 1500000
 packed: False
 seed: 42                # seed for reproducibility
 shuffle: True           # enable shuffling
