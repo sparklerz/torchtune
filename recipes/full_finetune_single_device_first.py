@@ -20,7 +20,7 @@ from torch.utils.data import DataLoader, DistributedSampler
 from torchtune import config, modules, training, utils
 from torchtune.config._utils import _get_component_from_path
 from torchtune.data import padded_collate_packed
-from torchtune.datasets import ConcatDataset
+from torchtune.datasets import ConcatDataset, Subset
 from torchtune.recipe_interfaces import FTRecipeInterface
 from torchtune.training import DummyProfiler, PROFILER_KEY
 from torchtune.training.lr_schedulers import get_lr
@@ -29,7 +29,7 @@ from huggingface_hub import hf_hub_download
 from pathlib import Path
 import shutil
 
-import time
+import random
 
 from tqdm import tqdm
 
@@ -317,7 +317,8 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             cfg_dataset=cfg.dataset,
             shuffle=cfg.shuffle,
             batch_size=cfg.batch_size,
-            collate_fn=collate_name
+            collate_fn=collate_name,
+            cfg=cfg
         )
 
         # Finally update the recipe state which can only be correctly set after all of the
@@ -568,7 +569,8 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         cfg_dataset: DictConfig,
         shuffle: bool,
         batch_size: int,
-        collate_fn: str
+        collate_fn: str,
+        cfg: DictConfig
     ) -> Tuple[DistributedSampler, DataLoader]:
         """
         All data related setup happens here.
@@ -576,6 +578,17 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
 
         # If cfg_dataset is a single dataset config:
         ds = config.instantiate(cfg_dataset, self._tokenizer)
+
+        # repeat samples
+        repeat_len = int(len(ds) * cfg.retrain_samples_percentage)
+        all_indices = list(range(len(ds)))
+        random.shuffle(all_indices)
+        subset_indices = all_indices[:repeat_len]
+
+        # create a Subset and then a combined dataset
+        retrain_subset = Subset(ds, subset_indices)
+        ds = ConcatDataset([ds, retrain_subset])
+
 
         # Instantiate collate_fn
         if "left_pad_sequence" in collate_fn:
