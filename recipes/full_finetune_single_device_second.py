@@ -577,7 +577,7 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         ds = config.instantiate(cfg_dataset, self._tokenizer)
 
         # repeat samples
-        repeat_len = int(len(ds) * cfg.retrain_samples_percentage)
+        repeat_len = int(len(ds) * cfg.retrain_samples_percentage) + (cfg.batch_size * cfg.number_of_syncs_per_epoch)
         all_indices = list(range(len(ds)))
         random.shuffle(all_indices)
         subset_indices = all_indices[:repeat_len]
