@@ -385,12 +385,6 @@ class FullModelHFCheckpointer(_CheckpointerInterface):
         # recipe_checkpoint contains the recipe state. This should be available if
         # resume_from_checkpoint is True
         self._recipe_checkpoint = None
-        # if self._resume_from_checkpoint:
-        #     if recipe_checkpoint is None:
-        #         raise ValueError(
-        #             "If resume_from_checkpoint is True, recipe_checkpoint file must be provided."
-        #         )
-        #     self._recipe_checkpoint = get_path(self._checkpoint_dir, recipe_checkpoint)
 
         if self._resume_from_checkpoint and recipe_checkpoint is not None:
             self._recipe_checkpoint = get_path(self._checkpoint_dir, recipe_checkpoint)

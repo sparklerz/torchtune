@@ -567,17 +567,9 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
 
     def _loss_step(self, batch: Dict[str, torch.Tensor]) -> torch.Tensor:
         # Shape [b, s], needed for the loss not the model
-        print("Starting forward pass")
-        
         labels = batch.pop("labels")
 
-        print(f"line 673 - labels : {labels}")
-
         logits = self._model(**batch)
-
-        print(f"line 677 - logits : {logits}")
-
-        print("Completed forward pass")
 
         # Shift labels to compute loss
         # equivalent to doing labels[..., 1:] and logits[..., :-1, :]
@@ -592,8 +584,6 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         # Compute loss
         loss = self._loss_fn(logits, labels)
         # free logits otherwise it peaks backward memory
-        print(f"line 694 - loss - {loss}")
-
         del logits
 
         return loss
@@ -625,8 +615,6 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
 
             pbar = tqdm(total=self._steps_per_epoch)
             for idx, batch in enumerate(self._dataloader):
-                print(f"line 727 - batch : {batch}")
-
                 if (
                     self.max_steps_per_epoch is not None
                     and (idx // self._gradient_accumulation_steps)

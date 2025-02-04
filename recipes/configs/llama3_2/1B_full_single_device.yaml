@@ -58,7 +58,7 @@ loss:
   _component_: torchtune.modules.loss.CEWithChunkedOutputLoss
 max_steps_per_epoch: null
 gradient_accumulation_steps: 1
-optimizer_in_bwd: False
+optimizer_in_bwd: True
 compile: False # pytorch compile, set to true for perf/memory improvement
 
 # Training environment
