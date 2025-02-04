@@ -145,7 +145,6 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
 
         # These are public properties which are updated by the checkpoint loader
         # when ``resume_from_checkpoint`` is `True` or validated in tests
-        #self.seed = training.set_seed(seed=cfg.seed)
         self.seed = int(time.time())
         self.epochs_run = 0
         self.total_epochs = cfg.epochs
@@ -165,50 +164,8 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             resume_from_checkpoint=self._resume_from_checkpoint,
         )
         checkpoint_dict = self._checkpointer.load_checkpoint()
-
-        # if self._resume_from_checkpoint:
-        #     self._update_recipe_state(checkpoint_dict)
         return checkpoint_dict
 
-    # def _update_recipe_state(self, ckpt_dict: Dict[str, Any]) -> None:
-    #     """
-    #     Updates the recipe state from checkpoint.
-    #     """
-    #     try:
-    #         self.epochs_run = ckpt_dict[training.EPOCHS_KEY]
-
-    #         # on mismatch, warn the user and prevent the override
-    #         if self.seed != ckpt_dict[training.SEED_KEY]:
-    #             warn(
-    #                 message=(
-    #                     "Config value for seed does not match the checkpoint value, "
-    #                     f"using the checkpoint value: {ckpt_dict[training.SEED_KEY]}"
-    #                 )
-    #             )
-    #             self.seed = ckpt_dict[training.SEED_KEY]
-    #         if self.max_steps_per_epoch != ckpt_dict[training.MAX_STEPS_KEY]:
-    #             warn(
-    #                 message=(
-    #                     "Config value for max_steps_per_epoch does not match the checkpoint value, "
-    #                     f"using the checkpoint value: {ckpt_dict[training.MAX_STEPS_KEY]}"
-    #                 )
-    #             )
-    #             self.max_steps_per_epoch = ckpt_dict[training.MAX_STEPS_KEY]
-
-    #         # on mismatch, warn the user but allow the override
-    #         if self.total_epochs != ckpt_dict[training.TOTAL_EPOCHS_KEY]:
-    #             warn(
-    #                 message=(
-    #                     "Config value for total_epochs does not match the checkpoint value, "
-    #                     f"using the config value: {self.total_epochs}"
-    #                 )
-    #             )
-
-    #     except KeyError as e:
-    #         raise KeyError(
-    #             "Checkpoint does not contain the required keys needed for updating recipe state. "
-    #             "Are you sure you passed in the right recipe checkpoint?"
-    #         ) from e
 
     def setup(self, cfg: DictConfig) -> None:
         """
@@ -260,9 +217,6 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             cfg_optimizer=cfg.optimizer,
             optimizer_in_bwd=cfg.optimizer_in_bwd,
             opt_state_dict=None,
-            # opt_state_dict=(
-            #     ckpt_dict[training.OPT_KEY] if self._resume_from_checkpoint else None
-            # ),
         )(params)
 
         print(f"self._host_maddrs - {self._host_maddrs}")
@@ -650,17 +604,9 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
 
     def _loss_step(self, batch: Dict[str, torch.Tensor]) -> torch.Tensor:
         # Shape [b, s], needed for the loss not the model
-        #print("Starting forward pass")
-        
         labels = batch.pop("labels")
 
-        # print(f"line 673 - labels : {labels}")
-
         logits = self._model(**batch)
-
-        # print(f"line 677 - logits : {logits}")
-
-        #print("Completed forward pass")
 
         # Shift labels to compute loss
         # equivalent to doing labels[..., 1:] and logits[..., :-1, :]
@@ -675,8 +621,6 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
         # Compute loss
         loss = self._loss_fn(logits, labels)
         # free logits otherwise it peaks backward memory
-        # print(f"line 694 - loss - {loss}")
-
         del logits
 
         return loss
@@ -720,7 +664,6 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
             pbar = tqdm(total=int((cfg.dataset.end_index - cfg.dataset.start_index) * (1 + cfg.retrain_samples_percentage)/cfg.number_of_syncs_per_epoch))
 
             for idx, batch in enumerate(self._dataloader):
-                # print(f"line 727 - batch : {batch}")
                 if self.sync_count >= cfg.number_of_syncs_per_epoch:
                     tqdm.write(f"Reached {cfg.number_of_syncs_per_epoch} Hivemind syncs this epoch. Breaking...")
                     break
@@ -756,18 +699,14 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                 # Step with optimizer
                 if (idx + 1) % self._gradient_accumulation_steps == 0:
                     loss = running_loss / num_tokens
-                    #print("Starting backward pass")
                     loss.backward()
-                    #print("Completed backward pass")
                     if self._clip_grad_norm is not None:
                         grad_norm = torch.nn.utils.clip_grad_norm_(
                             self._model.parameters(),
                             max_norm=float(self._clip_grad_norm),
                         )
                     if not self._optimizer_in_bwd:
-                        #print("Calling self._optimizer.step()")
                         self._optimizer.step()
-                        #print("Calling self._optimizer.zero_grad()")
                         self._optimizer.zero_grad(set_to_none=True)
 
                     # Need to fix `lr_scheduler.step()` before `optimizer.step()` warning
@@ -853,12 +792,10 @@ class FullFinetuneRecipeSingleDevice(FTRecipeInterface):
                 # Note we are stepping each batch, which might not include optimizer step in the trace
                 # if the schedule cycle doesn't align with gradient accumulation.
                 self._profiler.step()
-                #time.sleep(2)
 
             pbar.close()
             self.epochs_run += 1#local count
             self.sync_count = 0
-            # self.save_checkpoint(epoch=curr_epoch)#here save checkpoint
 
         self._profiler.stop()
 

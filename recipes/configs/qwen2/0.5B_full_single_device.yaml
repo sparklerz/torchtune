@@ -22,13 +22,6 @@ tokenizer:
   merges_file: /tmp/Qwen2-0.5B-Instruct/merges.txt
   max_seq_len: null
 
-# # Dataset
-# dataset:
-#   packed: False # Set to true for great speed ups
-#   _component_: torchtune.datasets.alpaca_cleaned_dataset
-# seed: null
-# shuffle: False
-
 # Dataset
 dataset:
   _component_: torchtune.datasets.huggingface_dataset.HuggingFaceDataset
@@ -39,17 +32,6 @@ dataset:
 packed: False
 seed: 42                # seed for reproducibility
 shuffle: True           # enable shuffling
-
-# # Dataset - 3.5 sonnet
-# dataset:
-#   packed: False # Set to true for great speed ups
-#   _component_: torchtune.datasets.huggingface_dataset
-#   path: ash001/arxiv-abstract
-#   train_test_split: 0.8  # 20% test set
-# seed: null
-# shuffle: True
-# start_index: 0
-# end_index: 100000
 
 # Model Arguments
 model:
