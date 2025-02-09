@@ -24,18 +24,20 @@ class HuggingFaceDataset(Dataset):
         if end_index is not None:
             train_texts = train_texts[start_index:end_index]
 
-        # Tokenize using the tokenizer's built-in truncation
+        # Tokenize using the tokenizer's __call__ method with built-in truncation
         encoded_inputs = []
         max_seq_length = 1024
         for text in train_texts:
-            encoded = tokenizer.encode(
+            # Use the tokenizer directly; this returns a dictionary (if it's a fast tokenizer)
+            encoded = tokenizer(
                 text,
-                add_bos=False,
-                add_eos=True,
                 truncation=True,
-                max_length=max_seq_length
+                max_length=max_seq_length,
+                add_special_tokens=True  # This can add the beginning and ending tokens if desired
             )
-            encoded_inputs.append(encoded)
+            # Extract input_ids from the result; if the tokenizer returns a list instead, this works too.
+            input_ids = encoded["input_ids"] if isinstance(encoded, dict) else encoded
+            encoded_inputs.append(input_ids)
 
         # Store in encodings dictionary
         encodings = {"tokens": encoded_inputs}
