@@ -24,24 +24,24 @@ class HuggingFaceDataset(Dataset):
         if end_index is not None:
             train_texts = train_texts[start_index:end_index]
 
-        # Tokenize using sentence splitting and manual truncation
         encoded_inputs = []
         max_seq_length = 1024
         for text in train_texts:
-            # Let the tokenizer handle truncation to avoid splitting in the middle of a sentence.
+            # Encode without truncation-related kwargs since Qwen2Tokenizer.encode() does not support them.
             encoded = tokenizer.encode(
                 text,
                 add_bos=False,
-                add_eos=True,
-                truncation=True,
-                max_length=max_seq_length
+                add_eos=True
             )
-            # Optionally ensure that the sequence ends with the EOS token.
-            if encoded[-1] != tokenizer.eos_token_id:
-                encoded.append(tokenizer.eos_token_id)
+            # Manually truncate the sequence if needed.
+            if len(encoded) > max_seq_length:
+                encoded = encoded[:max_seq_length]
+                # Ensure that the truncated sequence ends with an EOS token.
+                if encoded[-1] != tokenizer.eos_token_id:
+                    encoded[-1] = tokenizer.eos_token_id
             encoded_inputs.append(encoded)
         
-        # Store tokens in the encodings dictionary
+        # Store the tokenized sequences in a dictionary.
         self.encodings = {"tokens": encoded_inputs}
 
     def __len__(self):
